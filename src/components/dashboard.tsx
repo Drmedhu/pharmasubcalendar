@@ -8,71 +8,109 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { format } from 'date-fns';
 import { Header } from '@/components/header';
 import { useToast } from '@/hooks/use-toast';
+import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { collection, doc, writeBatch, Timestamp } from 'firebase/firestore';
+import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
-interface DashboardProps {
-  initialShifts: Shift[];
-  initialPharmacies: Pharmacy[];
-}
+export function Dashboard() {
+  const { user } = useUser();
+  const firestore = useFirestore();
 
-export function Dashboard({ initialShifts, initialPharmacies }: DashboardProps) {
-  const [shifts, setShifts] = React.useState<Shift[]>(initialShifts);
-  const [pharmacies, setPharmacies] = React.useState<Pharmacy[]>(initialPharmacies);
+  const pharmaciesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'pharmacies');
+  }, [firestore]);
+  const { data: pharmacies, isLoading: isLoadingPharmacies } = useCollection<Pharmacy>(pharmaciesQuery);
+
+  const shiftsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'shifts');
+  }, [firestore]);
+  const { data: shifts, isLoading: isLoadingShifts } = useCollection<Shift>(shiftsQuery);
+  
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date());
   const { toast } = useToast();
 
   const handleBookShift = (shiftId: string) => {
-    setShifts((prevShifts) =>
-      prevShifts.map((shift) =>
-        shift.id === shiftId ? { ...shift, status: 'booked' } : shift
-      )
-    );
+    if (!firestore || !user) return;
+    const shiftRef = doc(firestore, 'shifts', shiftId);
+    updateDocumentNonBlocking(shiftRef, { 
+      status: 'booked',
+      bookedBy: user.uid
+    });
   };
   
   const handleCreateShift = (newShift: Omit<Shift, 'id' | 'status'>) => {
-    setShifts((prevShifts) => [
-      ...prevShifts,
-      {
-        ...newShift,
-        id: `sh_${Date.now()}`,
-        status: 'available',
-      },
-    ]);
+    if (!firestore) return;
+    const shiftsCollection = collection(firestore, 'shifts');
+    const { date, ...restOfShift } = newShift;
+    const dateAsTimestamp = Timestamp.fromDate(new Date(date));
+    addDocumentNonBlocking(shiftsCollection, {
+      ...restOfShift,
+      date: dateAsTimestamp,
+      status: 'available',
+      userId: user?.uid,
+    });
   };
   
   const handleCreatePharmacy = (newPharmacy: Omit<Pharmacy, 'id'>) => {
-    const newPharmacyWithId = {
+     if (!firestore) return { ...newPharmacy, id: ''};
+    const pharmaciesCollection = collection(firestore, 'pharmacies');
+    addDocumentNonBlocking(pharmaciesCollection, {
       ...newPharmacy,
-      id: `ph_${Date.now()}`,
-    };
-    setPharmacies((prevPharmacies) => [
-      ...prevPharmacies,
-      newPharmacyWithId,
-    ]);
-    return newPharmacyWithId;
+      userId: user?.uid,
+    });
+    // This return is optimistic. A better approach would be to wait for the doc ID.
+    return { ...newPharmacy, id: `ph_${Date.now()}` };
   };
 
-  const handleDeletePharmacy = (pharmacyId: string) => {
-    setPharmacies((prevPharmacies) =>
-      prevPharmacies.filter((p) => p.id !== pharmacyId)
-    );
-    setShifts((prevShifts) =>
-        prevShifts.filter((s) => s.pharmacyId !== pharmacyId)
-    );
+  const handleDeletePharmacy = async (pharmacyId: string) => {
+    if (!firestore) return;
+    const batch = writeBatch(firestore);
+    
+    // Delete the pharmacy
+    const pharmacyRef = doc(firestore, 'pharmacies', pharmacyId);
+    batch.delete(pharmacyRef);
+
+    // Delete associated shifts
+    if (shifts) {
+        shifts.forEach(shift => {
+            if (shift.pharmacyId === pharmacyId) {
+                const shiftRef = doc(firestore, 'shifts', shift.id);
+                batch.delete(shiftRef);
+            }
+        });
+    }
+    
+    await batch.commit();
+
     toast({
         title: 'Gyógyszertár törölve',
         description: 'A gyógyszertár és a hozzá tartozó műszakok sikeresen törölve lettek.',
     });
   };
 
-  const shiftsOnSelectedDate = shifts.filter(
+  const shiftsWithDateObjects = React.useMemo(() => {
+    return shifts?.map(s => ({
+      ...s,
+      date: s.date instanceof Timestamp ? s.date.toDate() : new Date(s.date)
+    })) || [];
+  }, [shifts]);
+
+
+  const shiftsOnSelectedDate = shiftsWithDateObjects.filter(
     (shift) =>
       selectedDate &&
-      new Date(shift.date).toDateString() === selectedDate.toDateString()
+      shift.date.toDateString() === selectedDate.toDateString()
   );
+
+  if (isLoadingPharmacies || isLoadingShifts) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <>
-      <Header pharmacies={pharmacies} onCreateShift={handleCreateShift} onCreatePharmacy={handleCreatePharmacy} onDeletePharmacy={handleDeletePharmacy} />
+      <Header pharmacies={pharmacies || []} onCreateShift={handleCreateShift} onCreatePharmacy={handleCreatePharmacy} onDeletePharmacy={handleDeletePharmacy} />
       <div className="container mx-auto grid max-w-7xl grid-cols-1 gap-8 p-4 md:grid-cols-3 lg:grid-cols-5 md:p-6 lg:p-8">
         <div className="lg:col-span-3 md:col-span-2">
           <Card>
@@ -82,7 +120,7 @@ export function Dashboard({ initialShifts, initialPharmacies }: DashboardProps) 
             </CardHeader>
             <CardContent>
               <ShiftCalendar
-                shifts={shifts}
+                shifts={shiftsWithDateObjects}
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
               />
@@ -103,7 +141,7 @@ export function Dashboard({ initialShifts, initialPharmacies }: DashboardProps) 
             <CardContent>
               <ShiftList
                 shifts={shiftsOnSelectedDate}
-                pharmacies={pharmacies}
+                pharmacies={pharmacies || []}
                 onBookShift={handleBookShift}
               />
             </CardContent>

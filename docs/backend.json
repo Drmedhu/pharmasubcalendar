@@ -6,10 +6,6 @@
       "type": "object",
       "description": "Represents a pharmacy that posts shifts.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Pharmacy entity."
-        },
         "name": {
           "type": "string",
           "description": "Name of the pharmacy."
@@ -18,64 +14,15 @@
           "type": "string",
           "description": "Address of the pharmacy."
         },
-        "contactEmail": {
+        "userId": {
           "type": "string",
-          "description": "Email address for contacting the pharmacy.",
-          "format": "email"
-        },
-        "contactPhone": {
-          "type": "string",
-          "description": "Phone number for contacting the pharmacy."
+          "description": "The ID of the user who created the pharmacy."
         }
       },
       "required": [
-        "id",
         "name",
         "address",
-        "contactEmail",
-        "contactPhone"
-      ]
-    },
-    "Substitute": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Substitute",
-      "type": "object",
-      "description": "Represents a substitute pharmacist.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Substitute entity."
-        },
-        "firstName": {
-          "type": "string",
-          "description": "First name of the substitute pharmacist."
-        },
-        "lastName": {
-          "type": "string",
-          "description": "Last name of the substitute pharmacist."
-        },
-        "email": {
-          "type": "string",
-          "description": "Email address of the substitute pharmacist.",
-          "format": "email"
-        },
-        "phone": {
-          "type": "string",
-          "description": "Phone number of the substitute pharmacist."
-        },
-        "availability": {
-          "type": "string",
-          "description": "General availability of the substitute pharmacist (e.g., days of the week, time ranges).",
-          "format": "string"
-        }
-      },
-      "required": [
-        "id",
-        "firstName",
-        "lastName",
-        "email",
-        "phone",
-        "availability"
+        "userId"
       ]
     },
     "Shift": {
@@ -84,81 +31,53 @@
       "type": "object",
       "description": "Represents a shift posted by a pharmacy.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Shift entity."
-        },
         "pharmacyId": {
           "type": "string",
           "description": "Reference to Pharmacy. (Relationship: Pharmacy 1:N Shift)"
         },
+        "date": {
+          "type": "string",
+          "description": "Date of the shift.",
+          "format": "date-time"
+        },
         "startTime": {
           "type": "string",
-          "description": "Start time of the shift.",
-          "format": "date-time"
+          "description": "Start time of the shift."
         },
         "endTime": {
           "type": "string",
-          "description": "End time of the shift.",
-          "format": "date-time"
+          "description": "End time of the shift."
         },
         "payRate": {
           "type": "number",
           "description": "Pay rate for the shift."
         },
-        "isBooked": {
-          "type": "boolean",
-          "description": "Indicates whether the shift has been booked."
-        },
-        "substituteId": {
+        "status": {
           "type": "string",
-          "description": "Reference to Substitute. (Relationship: Substitute 1:N Shift). Nullable if the shift isn't booked."
+          "enum": ["available", "booked"]
+        },
+        "bookedBy": {
+          "type": "string",
+          "description": "Reference to the user who booked the shift. Nullable if the shift isn't booked."
+        },
+        "userId": {
+          "type": "string",
+          "description": "The ID of the user who created the shift."
         }
       },
       "required": [
-        "id",
         "pharmacyId",
+        "date",
         "startTime",
         "endTime",
         "payRate",
-        "isBooked"
-      ]
-    },
-    "Booking": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Booking",
-      "type": "object",
-      "description": "Represents a booking made by a substitute for a shift.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Booking entity."
-        },
-        "shiftId": {
-          "type": "string",
-          "description": "Reference to Shift. (Relationship: Shift 1:N Booking)"
-        },
-        "substituteId": {
-          "type": "string",
-          "description": "Reference to Substitute. (Relationship: Substitute 1:N Booking)"
-        },
-        "bookingTime": {
-          "type": "string",
-          "description": "Timestamp of when the booking was made.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "shiftId",
-        "substituteId",
-        "bookingTime"
+        "status",
+        "userId"
       ]
     }
   },
   "auth": {
     "providers": [
-      "password",
       "anonymous"
     ]
   },
@@ -169,31 +88,9 @@
         "definition": {
           "entityName": "Pharmacy",
           "schema": {
-            "$ref": "#/backend/entities/Pharmacy"
+            "$ref": "#/entities/Pharmacy"
           },
-          "description": "Stores pharmacy information. Each document represents a pharmacy. The 'pharmacyId' is used as the document ID.",
-          "params": [
-            {
-              "name": "pharmacyId",
-              "description": "Unique identifier for the pharmacy."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/substitutes/{substituteId}",
-        "definition": {
-          "entityName": "Substitute",
-          "schema": {
-            "$ref": "#/backend/entities/Substitute"
-          },
-          "description": "Stores substitute pharmacist information.  The 'substituteId' is used as the document ID.",
-          "params": [
-            {
-              "name": "substituteId",
-              "description": "Unique identifier for the substitute pharmacist."
-            }
-          ]
+          "description": "Stores pharmacy information. Each document represents a pharmacy. The 'pharmacyId' is used as the document ID."
         }
       },
       {
@@ -201,34 +98,11 @@
         "definition": {
           "entityName": "Shift",
           "schema": {
-            "$ref": "#/backend/entities/Shift"
+            "$ref": "#/entities/Shift"
           },
-          "description": "Stores shift information. Includes denormalized 'pharmacyId' for authorization independence.",
-          "params": [
-            {
-              "name": "shiftId",
-              "description": "Unique identifier for the shift."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/bookings/{bookingId}",
-        "definition": {
-          "entityName": "Booking",
-          "schema": {
-            "$ref": "#/backend/entities/Booking"
-          },
-          "description": "Stores booking information, linking shifts and substitutes.",
-          "params": [
-            {
-              "name": "bookingId",
-              "description": "Unique identifier for the booking."
-            }
-          ]
+          "description": "Stores shift information."
         }
       }
-    ],
-    "reasoning": "The Firestore structure is designed to support a pharmacy shift booking application, focusing on security, scalability, and real-time data consistency. The structure prioritizes authorization independence by avoiding hierarchical `get()` calls in security rules through denormalization. This ensures that atomic operations like creating shifts and bookings are secure and robust.\n\n*   **Pharmacies (`/pharmacies/{pharmacyId}`):** Stores pharmacy information. This collection has a homogeneous security posture; all documents within share the same access requirements.\n*   **Substitutes (`/substitutes/{substituteId}`):** Stores substitute pharmacist information. Like pharmacies, this collection maintains a consistent security posture.\n*   **Shifts (`/shifts/{shiftId}`):** Stores shift details. Includes `pharmacyId` to link to the relevant pharmacy. To achieve authorization independence, the `pharmacyId` is included within each shift document, avoiding the need to fetch the pharmacy document in security rules to validate ownership.\n*   **Bookings (`/bookings/{bookingId}`):** Stores booking information, linking shifts and substitutes. Includes both `shiftId` and `substituteId` to maintain a clear relationship and enable efficient querying. Also, the `shiftId` is duplicated in the booking document to avoid having to `get()` the `shift` document in rules.\n\n**Authorization Independence:** The design ensures authorization independence by including the `pharmacyId` within each `Shift` document. This eliminates the need for security rules to perform `get()` operations on the `/pharmacies` collection to verify ownership, enabling atomic operations and improving scalability.\n\n**QAPs (Rules are not Filters):**\n*   The use of separate collections for pharmacies, substitutes, shifts, and bookings ensures a homogeneous security posture within each collection. This allows for simple and efficient security rules that do not require filtering based on document content.\n*   The explicit denormalization of `pharmacyId` in the `Shift` collection enables secure list operations without needing to fetch related pharmacy data."
+    ]
   }
 }

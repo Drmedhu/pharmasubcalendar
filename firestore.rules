@@ -1,132 +1,118 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset enforces a strict user-ownership model for pharmacies and substitutes, 
- * allowing them to manage their own profiles. Shifts and bookings can be read by anyone, but
- * creation, updates, and deletions are restricted to the owning pharmacy or substitute.
- * 
+ * @fileoverview Firestore Security Rules for a pharmacy shift booking application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a combination of ownership-based and public-read/owner-write access control.
+ * User-specific data (pharmacies, substitutes) is protected by ownership checks,
+ * while shift information is publicly readable but restricted to pharmacy owners for modifications.
+ *
  * Data Structure:
- * - /pharmacies/{pharmacyId}: Stores pharmacy profiles.
- * - /substitutes/{substituteId}: Stores substitute profiles.
- * - /shifts/{shiftId}: Stores shift details, including pharmacyId.
- * - /bookings/{bookingId}: Stores booking information, including shiftId and substituteId.
- * 
+ * - /pharmacies/{pharmacyId}: Stores pharmacy profiles, accessible only to the pharmacy itself.
+ * - /substitutes/{substituteId}: Stores substitute pharmacist profiles, accessible only to the substitute.
+ * - /shifts/{shiftId}: Stores shift details, publicly readable but writable only by the owning pharmacy.
+ * - /bookings/{bookingId}: Stores booking information, writable by anyone.
+ *
  * Key Security Decisions:
- * - Pharmacies and substitutes can only manage their own profiles (create, update, delete).
- * - Anyone can read shift and booking data.
- * - Shifts include the pharmacyId to allow shift-level rules to validate ownership without extra reads.
- * - Bookings include the shiftId and substituteId to link shifts and substitutes.
- * 
+ * - Pharmacies and Substitutes can only be created, read, updated, and deleted by themselves (ownership model).
+ * - Shifts are publicly readable but can only be created, updated, and deleted by the owning pharmacy. The `pharmacyId` field within the shift document is used to enforce this ownership.
+ * - Bookings can be created by anyone.
+ * - Listing of users is denied.
+ *
  * Denormalization for Authorization:
- * - Shifts contain a `pharmacyId` to enable authorization rules on shift documents without needing to fetch the pharmacy document.
+ * - The `shifts` documents contain `pharmacyId`, denormalizing the pharmacy ownership of the shift. This avoids needing to perform a `get()` operation on the `/pharmacies/{pharmacyId}` document to check ownership when modifying a shift.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Manages pharmacy profile data.
+     * @description Grants pharmacies owner-only access to their profiles.
      * @path /pharmacies/{pharmacyId}
-     * @allow (create) - A pharmacy with ID 'pharmacy123' can create its own profile (auth.uid == 'pharmacy123').
-     * @allow (update) - A pharmacy with ID 'pharmacy123' can update its own profile.
-     * @allow (delete) - A pharmacy with ID 'pharmacy123' can delete its own profile.
-     * @deny  (create) - A pharmacy with ID 'pharmacy123' cannot create a profile for 'pharmacy456' (auth.uid != 'pharmacy456').
-     * @principle Enforces document ownership for writes, allowing only the owner (pharmacy) to modify or delete their profile.
+     * @allow (create) - A pharmacy with ID 'pharmacy123' can create its profile if authenticated as 'pharmacy123'.
+     * @allow (get) - A pharmacy with ID 'pharmacy123' can read its profile if authenticated as 'pharmacy123'.
+     * @allow (update) - A pharmacy with ID 'pharmacy123' can update its profile if authenticated as 'pharmacy123'.
+     * @allow (delete) - A pharmacy with ID 'pharmacy123' can delete its profile if authenticated as 'pharmacy123'.
+     * @deny (create) - A pharmacy with ID 'pharmacy123' cannot create a profile with ID 'otherPharmacy'.
+     * @deny (get) - A user not authenticated as 'pharmacy123' cannot read the profile of 'pharmacy123'.
+     * @principle Enforces document ownership for all operations.
      */
     match /pharmacies/{pharmacyId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(pharmacyId) {
-        return request.auth.uid == pharmacyId;
-      }
-
-      function isExistingOwner(pharmacyId) {
-        return exists(/databases/$(database)/documents/pharmacies/$(pharmacyId));
-      }
-
-      allow get: if true;
-      allow list: if true;
-
-      allow create: if isSignedIn() && isOwner(pharmacyId);
-      allow update: if isSignedIn() && isOwner(pharmacyId);
-      allow delete: if isSignedIn() && isOwner(pharmacyId);
+      allow get: if isSignedIn() && isOwner(pharmacyId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(pharmacyId) && request.resource.data.id == pharmacyId;
+      allow update: if isSignedIn() && isExistingOwner(pharmacyId) && request.resource.data.id == resource.data.id;
+      allow delete: if isSignedIn() && isExistingOwner(pharmacyId);
     }
 
     /**
-     * @description Manages substitute pharmacist profile data.
+     * @description Grants substitutes owner-only access to their profiles.
      * @path /substitutes/{substituteId}
-     * @allow (create) - A substitute with ID 'sub123' can create their own profile (auth.uid == 'sub123').
-     * @allow (update) - A substitute with ID 'sub123' can update their own profile.
-     * @allow (delete) - A substitute with ID 'sub123' can delete their own profile.
-     * @deny  (create) - A substitute with ID 'sub123' cannot create a profile for 'sub456' (auth.uid != 'sub456').
-     * @principle Enforces document ownership for writes, allowing only the owner (substitute) to modify or delete their profile.
+     * @allow (create) - A substitute with ID 'sub123' can create their profile if authenticated as 'sub123'.
+     * @allow (get) - A substitute with ID 'sub123' can read their profile if authenticated as 'sub123'.
+     * @allow (update) - A substitute with ID 'sub123' can update their profile if authenticated as 'sub123'.
+     * @allow (delete) - A substitute with ID 'sub123' can delete their profile if authenticated as 'sub123'.
+     * @deny (create) - A substitute with ID 'sub123' cannot create a profile with ID 'otherSub'.
+     * @deny (get) - A user not authenticated as 'sub123' cannot read the profile of 'sub123'.
+     * @principle Enforces document ownership for all operations.
      */
     match /substitutes/{substituteId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(substituteId) {
-        return request.auth.uid == substituteId;
-      }
-
-      function isExistingOwner(substituteId) {
-        return exists(/databases/$(database)/documents/substitutes/$(substituteId));
-      }
-
-      allow get: if true;
-      allow list: if true;
-
-      allow create: if isSignedIn() && isOwner(substituteId);
-      allow update: if isSignedIn() && isOwner(substituteId);
-      allow delete: if isSignedIn() && isOwner(substituteId);
+      allow get: if isSignedIn() && isOwner(substituteId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(substituteId) && request.resource.data.id == substituteId;
+      allow update: if isSignedIn() && isExistingOwner(substituteId) && request.resource.data.id == resource.data.id;
+      allow delete: if isSignedIn() && isExistingOwner(substituteId);
     }
 
     /**
-     * @description Manages shift data posted by pharmacies.
+     * @description Allows public read access to shifts, but restricts writes to the owning pharmacy.
      * @path /shifts/{shiftId}
-     * @allow (get, list) - Anyone can read shift data.
-     * @allow (create) - A pharmacy with ID 'pharmacy123' can create a shift with pharmacyId: 'pharmacy123'.
-     * @allow (update) - A pharmacy with ID 'pharmacy123' can update a shift where shift.pharmacyId == 'pharmacy123'.
-     * @allow (delete) - A pharmacy with ID 'pharmacy123' can delete a shift where shift.pharmacyId == 'pharmacy123'.
-     * @deny  (create) - A pharmacy with ID 'pharmacy123' cannot create a shift with pharmacyId: 'pharmacy456'.
-     * @principle Shift creation and management is restricted to the owning pharmacy. Public read access.
+     * @allow (get) - Any user can read a shift.
+     * @allow (list) - Any user can list shifts.
+     * @allow (create) - A pharmacy can create a shift, provided the 'pharmacyId' matches their auth UID.
+     * @allow (update) - A pharmacy can update a shift they own, verified by matching the 'pharmacyId' in the document.
+     * @allow (delete) - A pharmacy can delete a shift they own.
+     * @deny (create) - A pharmacy cannot create a shift with a 'pharmacyId' that doesn't match their auth UID.
+     * @deny (update) - A pharmacy cannot update a shift they don't own.
+     * @principle Allows public read access while enforcing owner-only writes.
      */
     match /shifts/{shiftId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
       allow get: if true;
       allow list: if true;
-
       allow create: if isSignedIn() && request.resource.data.pharmacyId == request.auth.uid;
-      allow update: if isSignedIn() && request.resource.data.pharmacyId == request.auth.uid;
-      allow delete: if isSignedIn() && request.resource.data.pharmacyId == request.auth.uid;
+      allow update: if isSignedIn() && isExistingOwnerOfShift(resource.data.pharmacyId);
+      allow delete: if isSignedIn() && isExistingOwnerOfShift(resource.data.pharmacyId);
     }
 
     /**
-     * @description Manages booking data, linking shifts and substitutes.
+     * @description Allows anyone to create a booking.
      * @path /bookings/{bookingId}
-     * @allow (get, list) - Anyone can read booking data.
-     * @allow (create) - A substitute can create a booking for a shift.  We are NOT validating the substituteId here, as this is prototyping mode.
-     * @allow (update) - No updates allowed.
-     * @allow (delete) - No deletes allowed.
-     * @deny  (create) - An unauthenticated user cannot create a booking.
-     * @principle Public read access, restricted write access.  The rules currently do not validate the relation integrity between bookings, shifts, and substitutes.
+     * @allow (create) - Any authenticated user can create a booking.
+     * @deny (update) - No one can update a booking.
+     * @deny (delete) - No one can delete a booking.
+     * @principle Allows public booking creation.
      */
     match /bookings/{bookingId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      allow get: if true;
-      allow list: if true;
-
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
       allow create: if isSignedIn();
       allow update: if false;
       allow delete: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    function isExistingOwnerOfShift(pharmacyId) {
+      return request.auth.uid == pharmacyId && resource != null;
     }
   }
 }

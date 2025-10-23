@@ -15,7 +15,7 @@ export default function ShiftCalendar({ shifts, selectedDate, setSelectedDate }:
   const availableShiftDays = React.useMemo(() => {
     return shifts
       .filter((shift) => shift.status === 'available')
-      .map((shift) => new Date(shift.date));
+      .map((shift) => new Date(shift.date as string));
   }, [shifts]);
 
   const DayContent: React.ComponentType<React.PropsWithChildren<{ date: Date }>> = (props) => {

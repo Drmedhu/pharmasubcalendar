@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Clock, DollarSign, MapPin, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { Timestamp } from 'firebase/firestore';
 
 interface ShiftCardProps {
   shift: Shift;
@@ -31,10 +32,12 @@ export default function ShiftCard({ shift, pharmacy, onBookShift }: ShiftCardPro
     onBookShift(shift.id);
     toast({
       title: 'Shift Booked!',
-      description: `Your booking at ${pharmacy?.name} on ${format(new Date(shift.date), 'MMM d')} is confirmed.`,
+      description: `Your booking at ${pharmacy?.name} on ${format(shift.date instanceof Date ? shift.date : (shift.date as Timestamp).toDate(), 'MMM d')} is confirmed.`,
       action: <CheckCircle2 className="text-green-500" />
     });
   };
+  
+  const shiftDate = shift.date instanceof Date ? shift.date : (shift.date as Timestamp).toDate();
 
   return (
     <div className="flex flex-col gap-4">
@@ -79,7 +82,7 @@ export default function ShiftCard({ shift, pharmacy, onBookShift }: ShiftCardPro
                   Are you sure you want to book this shift?
                   <div className="mt-4 rounded-md border bg-muted/50 p-4 text-sm text-foreground">
                     <p className='flex items-center gap-2'><strong className="w-16">Pharmacy:</strong> {pharmacy?.name}</p>
-                    <p className='flex items-center gap-2'><strong className="w-16">Date:</strong> {format(new Date(shift.date), 'EEEE, MMMM d, yyyy')}</p>
+                    <p className='flex items-center gap-2'><strong className="w-16">Date:</strong> {format(shiftDate, 'EEEE, MMMM d, yyyy')}</p>
                     <p className='flex items-center gap-2'><strong className="w-16">Time:</strong> {shift.startTime} - {shift.endTime}</p>
                     <p className='flex items-center gap-2'><strong className="w-16">Pay:</strong> ${shift.payRate}/hr</p>
                   </div>
