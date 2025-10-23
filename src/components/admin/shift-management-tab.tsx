@@ -16,7 +16,7 @@ interface ShiftManagementTabProps {
 
 export default function ShiftManagementTab({ shifts, profiles, onCancelBooking }: ShiftManagementTabProps) {
     
-    const getBookedByName = (userId: string | undefined) => {
+    const getBookedByName = (userId: string | undefined | null) => {
         if (!userId) return 'N/A';
         const profile = profiles.find(p => p.userId === userId);
         return profile ? profile.name : 'Unknown User';
