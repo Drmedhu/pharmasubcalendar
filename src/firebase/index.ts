@@ -14,6 +14,16 @@ export function initializeFirebase() {
     messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   };
+  
+  if (!firebaseConfig.apiKey) {
+    console.error("Firebase API key is missing. Make sure NEXT_PUBLIC_FIREBASE_API_KEY is set in your .env.local file.");
+    // Return a dummy object or throw an error to prevent further execution
+    return {
+        firebaseApp: null,
+        auth: null,
+        firestore: null,
+    };
+  }
 
   if (!getApps().length) {
     if (process.env.NODE_ENV === 'development') {
@@ -40,6 +50,7 @@ export function initializeFirebase() {
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
+  if (!firebaseApp) return { firebaseApp: null, auth: null, firestore: null };
   return {
     firebaseApp,
     auth: getAuth(firebaseApp),
