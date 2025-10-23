@@ -6,6 +6,7 @@ import ShiftCalendar from '@/components/shift-calendar';
 import ShiftList from '@/components/shift-list';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { format } from 'date-fns';
+import { Header } from '@/components/header';
 
 interface DashboardProps {
   initialShifts: Shift[];
@@ -23,6 +24,17 @@ export function Dashboard({ initialShifts, pharmacies }: DashboardProps) {
       )
     );
   };
+  
+  const handleCreateShift = (newShift: Omit<Shift, 'id' | 'status'>) => {
+    setShifts((prevShifts) => [
+      ...prevShifts,
+      {
+        ...newShift,
+        id: `sh_${Date.now()}`,
+        status: 'available',
+      },
+    ]);
+  };
 
   const shiftsOnSelectedDate = shifts.filter(
     (shift) =>
@@ -31,42 +43,45 @@ export function Dashboard({ initialShifts, pharmacies }: DashboardProps) {
   );
 
   return (
-    <div className="container mx-auto grid max-w-7xl grid-cols-1 gap-8 p-4 md:grid-cols-3 lg:grid-cols-5 md:p-6 lg:p-8">
-      <div className="lg:col-span-3 md:col-span-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Shift Calendar</CardTitle>
-            <CardDescription>Select a day to view available shifts. Days with available shifts are marked with a dot.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ShiftCalendar
-              shifts={shifts}
-              selectedDate={selectedDate}
-              setSelectedDate={setSelectedDate}
-            />
-          </CardContent>
-        </Card>
+    <>
+      <Header pharmacies={pharmacies} onCreateShift={handleCreateShift} />
+      <div className="container mx-auto grid max-w-7xl grid-cols-1 gap-8 p-4 md:grid-cols-3 lg:grid-cols-5 md:p-6 lg:p-8">
+        <div className="lg:col-span-3 md:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Shift Calendar</CardTitle>
+              <CardDescription>Select a day to view available shifts. Days with available shifts are marked with a dot.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ShiftCalendar
+                shifts={shifts}
+                selectedDate={selectedDate}
+                setSelectedDate={setSelectedDate}
+              />
+            </CardContent>
+          </Card>
+        </div>
+        <div className="lg:col-span-2 md:col-span-1">
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle>
+                Shifts for{' '}
+                {selectedDate ? format(selectedDate, 'MMMM d') : '...'}
+              </CardTitle>
+              <CardDescription>
+                All shifts scheduled for the selected day.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ShiftList
+                shifts={shiftsOnSelectedDate}
+                pharmacies={pharmacies}
+                onBookShift={handleBookShift}
+              />
+            </CardContent>
+          </Card>
+        </div>
       </div>
-      <div className="lg:col-span-2 md:col-span-1">
-        <Card className="h-full">
-          <CardHeader>
-            <CardTitle>
-              Shifts for{' '}
-              {selectedDate ? format(selectedDate, 'MMMM d') : '...'}
-            </CardTitle>
-            <CardDescription>
-              All shifts scheduled for the selected day.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ShiftList
-              shifts={shiftsOnSelectedDate}
-              pharmacies={pharmacies}
-              onBookShift={handleBookShift}
-            />
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+    </>
   );
 }

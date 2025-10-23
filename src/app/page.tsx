@@ -6,7 +6,6 @@ import { Toaster } from '@/components/ui/toaster';
 export default function HomePage() {
   return (
     <div className="flex min-h-screen w-full flex-col">
-      <Header />
       <main className="flex-1">
         <Dashboard initialShifts={shifts} pharmacies={pharmacies} />
       </main>
