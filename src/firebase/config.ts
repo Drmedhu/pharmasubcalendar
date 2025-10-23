@@ -2,10 +2,10 @@
 // IMPORTANT: Replace the placeholder values with your actual Firebase project configuration.
 
 export const firebaseConfig = {
-  apiKey: "REPLACE_WITH_YOUR_API_KEY",
-  authDomain: "REPLACE_WITH_YOUR_AUTH_DOMAIN",
-  projectId: "REPLACE_WITH_YOUR_PROJECT_ID",
-  storageBucket: "REPLACE_WITH_YOUR_STORAGE_BUCKET",
-  messagingSenderId: "REPLACE_WITH_YOUR_MESSAGING_SENDER_ID",
-  appId: "REPLACE_WITH_YOUR_APP_ID",
+  "projectId": "studio-3758582175-2db24",
+  "appId": "1:243422162135:web:f7f3dc4470f4479d601492",
+  "apiKey": "AIzaSyDgHs853QT7YADyHV0Tj6LYtCx_RZ00Qto",
+  "authDomain": "studio-3758582175-2db24.firebaseapp.com",
+  "measurementId": "",
+  "messagingSenderId": "243422162135"
 };
