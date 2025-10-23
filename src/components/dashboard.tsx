@@ -10,11 +10,12 @@ import { Header } from '@/components/header';
 
 interface DashboardProps {
   initialShifts: Shift[];
-  pharmacies: Pharmacy[];
+  initialPharmacies: Pharmacy[];
 }
 
-export function Dashboard({ initialShifts, pharmacies }: DashboardProps) {
+export function Dashboard({ initialShifts, initialPharmacies }: DashboardProps) {
   const [shifts, setShifts] = React.useState<Shift[]>(initialShifts);
+  const [pharmacies, setPharmacies] = React.useState<Pharmacy[]>(initialPharmacies);
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date());
 
   const handleBookShift = (shiftId: string) => {
@@ -35,6 +36,16 @@ export function Dashboard({ initialShifts, pharmacies }: DashboardProps) {
       },
     ]);
   };
+  
+  const handleCreatePharmacy = (newPharmacy: Omit<Pharmacy, 'id'>) => {
+    setPharmacies((prevPharmacies) => [
+      ...prevPharmacies,
+      {
+        ...newPharmacy,
+        id: `ph_${Date.now()}`,
+      },
+    ]);
+  };
 
   const shiftsOnSelectedDate = shifts.filter(
     (shift) =>
@@ -44,7 +55,7 @@ export function Dashboard({ initialShifts, pharmacies }: DashboardProps) {
 
   return (
     <>
-      <Header pharmacies={pharmacies} onCreateShift={handleCreateShift} />
+      <Header pharmacies={pharmacies} onCreateShift={handleCreateShift} onCreatePharmacy={handleCreatePharmacy} />
       <div className="container mx-auto grid max-w-7xl grid-cols-1 gap-8 p-4 md:grid-cols-3 lg:grid-cols-5 md:p-6 lg:p-8">
         <div className="lg:col-span-3 md:col-span-2">
           <Card>
