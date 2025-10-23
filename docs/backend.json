@@ -56,6 +56,10 @@
           "type": "string",
           "enum": ["available", "booked"]
         },
+        "role": {
+          "type": "string",
+          "enum": ["pharmacist", "assistant"]
+        },
         "bookedBy": {
           "type": "string",
           "description": "Reference to the user who booked the shift. Nullable if the shift isn't booked."
@@ -72,7 +76,8 @@
         "endTime",
         "payRate",
         "status",
-        "userId"
+        "userId",
+        "role"
       ]
     }
   },

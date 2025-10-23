@@ -15,6 +15,7 @@ export type Shift = {
   endTime: string;   // "HH:mm"
   payRate: number; // per hour
   status: 'available' | 'booked';
+  role: 'pharmacist' | 'assistant';
   bookedBy?: string;
   userId?: string;
 };

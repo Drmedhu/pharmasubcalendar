@@ -15,7 +15,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Clock, DollarSign, MapPin, CheckCircle2 } from 'lucide-react';
+import { Clock, DollarSign, MapPin, CheckCircle2, UserCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 
@@ -59,6 +59,10 @@ export default function ShiftCard({ shift, pharmacy, onBookShift, isPublicView =
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
         <div className="flex items-center gap-2">
+          <UserCircle2 className="h-4 w-4 text-muted-foreground" />
+          <span className="capitalize">{shift.role}</span>
+        </div>
+        <div className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-muted-foreground" />
           <span>{shift.startTime} - {shift.endTime}</span>
         </div>
@@ -82,10 +86,11 @@ export default function ShiftCard({ shift, pharmacy, onBookShift, isPublicView =
                 <div>
                   Are you sure you want to book this shift?
                   <div className="mt-4 rounded-md border bg-muted/50 p-4 text-sm text-foreground">
-                    <p className='flex items-center gap-2'><strong className="w-16">Pharmacy:</strong> {pharmacy?.name}</p>
-                    <p className='flex items-center gap-2'><strong className="w-16">Date:</strong> {format(shiftDate, 'EEEE, MMMM d, yyyy')}</p>
-                    <p className='flex items-center gap-2'><strong className="w-16">Time:</strong> {shift.startTime} - {shift.endTime}</p>
-                    <p className='flex items-center gap-2'><strong className="w-16">Pay:</strong> {shift.payRate} Ft/hr</p>
+                    <p className='flex items-center gap-2'><strong className="w-20">Pharmacy:</strong> {pharmacy?.name}</p>
+                    <p className='flex items-center gap-2'><strong className="w-20">Role:</strong> <span className='capitalize'>{shift.role}</span></p>
+                    <p className='flex items-center gap-2'><strong className="w-20">Date:</strong> {format(shiftDate, 'EEEE, MMMM d, yyyy')}</p>
+                    <p className='flex items-center gap-2'><strong className="w-20">Time:</strong> {shift.startTime} - {shift.endTime}</p>
+                    <p className='flex items-center gap-2'><strong className="w-20">Pay:</strong> {shift.payRate} Ft/hr</p>
                   </div>
                 </div>
               </AlertDialogDescription>

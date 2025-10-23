@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -23,6 +22,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import type { Pharmacy, Shift } from '@/lib/types';
+import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 
 const formSchema = z.object({
   pharmacyId: z.string().min(1, { message: 'Please select a pharmacy.' }),
@@ -32,6 +32,9 @@ const formSchema = z.object({
   startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, { message: 'Invalid time format. Use HH:mm.' }),
   endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, { message: 'Invalid time format. Use HH:mm.' }),
   payRate: z.coerce.number().min(1, { message: 'Pay rate must be a positive number.' }),
+  role: z.enum(['pharmacist', 'assistant'], {
+    required_error: "You need to select a role.",
+  }),
 });
 
 type CreateShiftFormValues = z.infer<typeof formSchema>;
@@ -51,6 +54,7 @@ export default function CreateShiftForm({ pharmacies, onCreateShift, onFormSubmi
       startTime: '',
       endTime: '',
       payRate: 0,
+      role: 'pharmacist',
     },
   });
 
@@ -91,6 +95,40 @@ export default function CreateShiftForm({ pharmacies, onCreateShift, onFormSubmi
                   ))}
                 </SelectContent>
               </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="role"
+          render={({ field }) => (
+            <FormItem className="space-y-3">
+              <FormLabel>Role</FormLabel>
+              <FormControl>
+                <RadioGroup
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                  className="flex space-x-4"
+                >
+                  <FormItem className="flex items-center space-x-2 space-y-0">
+                    <FormControl>
+                      <RadioGroupItem value="pharmacist" />
+                    </FormControl>
+                    <FormLabel className="font-normal">
+                      Pharmacist
+                    </FormLabel>
+                  </FormItem>
+                  <FormItem className="flex items-center space-x-2 space-y-0">
+                    <FormControl>
+                      <RadioGroupItem value="assistant" />
+                    </FormControl>
+                    <FormLabel className="font-normal">
+                      Assistant
+                    </FormLabel>
+                  </FormItem>
+                </RadioGroup>
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
