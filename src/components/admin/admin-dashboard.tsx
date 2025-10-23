@@ -38,7 +38,11 @@ export function AdminDashboard() {
   const isLoading = isLoadingProfiles || isLoadingShifts;
 
   if (isLoading) {
-    return <div>Loading admin data...</div>;
+    return (
+        <div className="flex min-h-screen w-full flex-col items-center justify-center">
+            <p>Loading admin data...</p>
+        </div>
+    );
   }
 
   return (

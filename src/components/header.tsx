@@ -1,4 +1,4 @@
-import { Briefcase, PlusCircle, Hospital, Trash2, Share2, User, Shield } from 'lucide-react';
+import { Briefcase, PlusCircle, Hospital, Trash2, Share2, User, Shield, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import CreateShiftForm from '@/components/create-shift-form';
@@ -6,12 +6,14 @@ import type { Pharmacy, Shift, UserProfile } from '@/lib/types';
 import * as React from 'react';
 import CreatePharmacyForm from './create-pharmacy-form';
 import { Separator } from './ui/separator';
-import { useUser as useAuthUser } from '@/firebase';
+import { useAuth, useUser as useAuthUser } from '@/firebase';
 import { Input } from './ui/input';
 import { useToast } from '@/hooks/use-toast';
 import ProfileForm from './profile-form';
 import Link from 'next/link';
 import { isAdmin } from '@/lib/admin';
+import { signOut } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
 
 interface HeaderProps {
     pharmacies: Pharmacy[];
@@ -28,8 +30,16 @@ export function Header({ pharmacies, onCreateShift, onCreatePharmacy, onDeletePh
   const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
   const [profileDialogOpen, setProfileDialogOpen] = React.useState(false);
   
+  const auth = useAuth();
   const { user } = useAuthUser();
   const { toast } = useToast();
+  const router = useRouter();
+
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push('/login');
+  };
 
   const shareUrl = React.useMemo(() => {
     if (typeof window !== 'undefined' && user) {
@@ -47,7 +57,7 @@ export function Header({ pharmacies, onCreateShift, onCreatePharmacy, onDeletePh
     });
   };
 
-  const userIsAdmin = isAdmin(user?.uid);
+  const userIsAdmin = isAdmin(user);
 
   return (
     <header className="border-b bg-card">
@@ -60,7 +70,7 @@ export function Header({ pharmacies, onCreateShift, onCreatePharmacy, onDeletePh
         </div>
         <div className='flex gap-2'>
           {userIsAdmin && (
-             <Button asChild variant="destructive">
+             <Button asChild variant="outline">
                 <Link href="/admin">
                     <Shield className="mr-2 h-4 w-4" />
                     Admin
@@ -161,6 +171,10 @@ export function Header({ pharmacies, onCreateShift, onCreatePharmacy, onDeletePh
               <CreateShiftForm pharmacies={pharmacies} onCreateShift={onCreateShift} onFormSubmit={() => setShiftDialogOpen(false)} />
             </DialogContent>
           </Dialog>
+           <Button variant="destructive" onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
+            </Button>
         </div>
       </div>
     </header>

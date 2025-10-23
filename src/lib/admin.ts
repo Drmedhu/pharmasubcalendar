@@ -1,10 +1,9 @@
 "use client";
+import type { User } from "firebase/auth";
 
-// For now, we will use a hardcoded admin UID.
-// In a production app, this should be managed via a database role or a custom claim.
-// TODO: Replace this with your actual Firebase User ID for the admin user.
-export const ADMIN_UID = "bjoekd4vPaNKIrw2E39UlPqDbxj1";
+// The email of the admin user.
+export const ADMIN_EMAIL = "erno.santha@drmed.hu";
 
-export const isAdmin = (uid: string | undefined): boolean => {
-    return uid === ADMIN_UID;
+export const isAdmin = (user: User | null | undefined): boolean => {
+    return user?.email === ADMIN_EMAIL;
 }

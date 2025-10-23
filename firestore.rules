@@ -1,85 +1,78 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset enforces a user-ownership model for pharmacies and shifts, with public read access for shifts.
+ * @fileoverview Firestore Security Rules for the shifts application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a user-ownership model for pharmacies and shifts,
+ * ensuring that only the creator can modify or delete them. User profiles
+ * are also protected by an ownership model.
  *
  * Data Structure:
- * - /pharmacies/{pharmacyId}: Stores pharmacy information, with the 'pharmacyId' used as the document ID.
- * - /shifts/{shiftId}: Stores shift information related to pharmacies.
- * - /userProfiles/{userId}: Stores user profile information.
+ * - /pharmacies/{pharmacyId}: Stores pharmacy information.
+ * - /shifts/{shiftId}: Stores shift information.
+ * - /userProfiles/{userId}: Stores user profiles, with the document ID matching the user's UID.
  *
  * Key Security Decisions:
- * - Pharmacies can only be created, updated, or deleted by their owners (the user who created them).
- * - Shifts can be created by authenticated users.
- * - User Profiles are private and only accessible to the respective user.
- * - Public read access to shifts is allowed.
+ * - Pharmacies and shifts can only be created, updated, or deleted by their respective owners.
+ * - User profiles can only be created and modified by the authenticated user.
+ *
+ * Admin Access:
+ * - An admin user with the email 'erno.santha@drmed.hu' has full read and write access to all data.
  *
  * Denormalization for Authorization:
- * - Pharmacies and Shifts have a 'userId' field, which is used to determine ownership.
+ * - The `userId` field within the Pharmacy and Shift documents is used to quickly verify ownership without additional reads.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows creating, reading, updating, and deleting pharmacy documents only by the user who owns them.
+     * @description Grants access to pharmacies based on ownership.
      * @path /pharmacies/{pharmacyId}
-     * @allow (create) - User with auth UID 'user_abc' can create a pharmacy document if request.resource.data.userId == 'user_abc'.
-     * @allow (get) - User can get a pharmacy.
-     * @allow (list) - User can list pharmacies.
-     * @allow (update) - User with auth UID 'user_abc' can update a pharmacy document they own if request.resource.data.userId == 'user_abc'.
-     * @allow (delete) - User with auth UID 'user_abc' can delete a pharmacy document they own if resource.data.userId == 'user_abc'.
-     * @deny (create) - User with auth UID 'user_xyz' cannot create a pharmacy document if request.resource.data.userId == 'user_abc'.
-     * @deny (update) - User with auth UID 'user_xyz' cannot update a pharmacy document owned by 'user_abc'.
-     * @deny (delete) - User with auth UID 'user_xyz' cannot delete a pharmacy document owned by 'user_abc'.
+     * @allow (create) User with UID 'user_abc' can create a pharmacy if pharmacy.userId == 'user_abc'.
+     * @deny (create) User with UID 'user_xyz' cannot create a pharmacy if pharmacy.userId != 'user_xyz'.
+     * @allow (get, list) Admin user can read any pharmacy.
+     * @allow (update, delete) User with UID 'user_abc' can update/delete a pharmacy if pharmacy.userId == 'user_abc'.
+     * @deny (update, delete) User with UID 'user_xyz' cannot update/delete a pharmacy if pharmacy.userId != 'user_xyz'.
      * @principle Enforces document ownership for writes.
      */
     match /pharmacies/{pharmacyId} {
-      allow get, list: if true;
+      allow get, list: if isAdmin();
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && isExistingOwner(resource.data.userId);
-      allow delete: if isSignedIn() && isExistingOwner(resource.data.userId);
+      allow update, delete: if isSignedIn() && isExistingOwner(resource.data.userId);
     }
 
     /**
-     * @description Allows creating shifts only by authenticated users and allows public reads.
+     * @description Grants access to shifts based on ownership.
      * @path /shifts/{shiftId}
-     * @allow (create) - User with auth UID 'user_abc' can create a shift.
-     * @allow (get) - Any user can read shift data.
-     * @allow (list) - Any user can list shifts.
-     * @allow (update) - User with auth UID 'user_abc' can update a shift that they own if request.resource.data.userId == 'user_abc'.
-     * @allow (delete) - User with auth UID 'user_abc' can delete a shift that they own if resource.data.userId == 'user_abc'.
-     * @deny (create) - Non-authenticated user cannot create a shift.
-     * @deny (update) - User with auth UID 'user_xyz' cannot update a shift owned by 'user_abc'.
-     * @deny (delete) - User with auth UID 'user_xyz' cannot delete a shift owned by 'user_abc'.
-     * @principle Enforces authentication for creates and ownership for updates/deletes, allows public read access.
+     * @allow (create) User with UID 'user_abc' can create a shift if shift.userId == 'user_abc'.
+     * @deny (create) User with UID 'user_xyz' cannot create a shift if shift.userId != 'user_xyz'.
+     * @allow (get, list) Admin user can read any shift.
+     * @allow (update, delete) User with UID 'user_abc' can update/delete a shift if shift.userId == 'user_abc'.
+     * @deny (update, delete) User with UID 'user_xyz' cannot update/delete a shift if shift.userId != 'user_xyz'.
+     * @principle Enforces document ownership for writes.
      */
     match /shifts/{shiftId} {
-      allow get, list: if true;
+      allow get, list: if isAdmin();
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && isExistingOwner(resource.data.userId);
-      allow delete: if isSignedIn() && isExistingOwner(resource.data.userId);
+      allow update, delete: if isSignedIn() && isExistingOwner(resource.data.userId);
     }
 
     /**
-     * @description Allows creating, reading, updating, and deleting user profile documents only by the user themselves.
+     * @description Grants access to user profiles based on ownership.
      * @path /userProfiles/{userId}
-     * @allow (create) - User with auth UID 'user_abc' can create their own profile.
-     * @allow (get) - User with auth UID 'user_abc' can read their own profile.
-     * @allow (list) - User with auth UID 'user_abc' can list their own profile.
-     * @allow (update) - User with auth UID 'user_abc' can update their own profile if request.resource.data.userId == 'user_abc'.
-     * @allow (delete) - User with auth UID 'user_abc' can delete their own profile.
-     * @deny (create) - User with auth UID 'user_xyz' cannot create a profile for 'user_abc'.
-     * @deny (get) - User with auth UID 'user_xyz' cannot read the profile of 'user_abc'.
-     * @deny (update) - User with auth UID 'user_xyz' cannot update the profile of 'user_abc'.
-     * @deny (delete) - User with auth UID 'user_xyz' cannot delete the profile of 'user_abc'.
+     * @allow (create) User with UID 'user_abc' can create their profile if userId == 'user_abc'.
+     * @deny (create) User with UID 'user_xyz' cannot create a profile for userId 'user_abc'.
+     * @allow (get, list) User can only access its profile.
+     * @allow (update) User with UID 'user_abc' can update their profile if userId == 'user_abc'.
+     * @deny (update) User with UID 'user_xyz' cannot update the profile for userId 'user_abc'.
      * @principle Restricts access to a user's own data tree.
      */
     match /userProfiles/{userId} {
-        allow get: if isSignedIn() && isOwner(userId);
-        allow list: if isSignedIn() && isOwner(userId);
-        allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == userId;
-        allow update: if isSignedIn() && isExistingOwner(userId) && request.resource.data.userId == userId;
-        allow delete: if isSignedIn() && isExistingOwner(userId);
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isOwner(userId) || isAdmin();
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && isOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if false;
     }
 
     function isSignedIn() {
@@ -92,6 +85,10 @@ service cloud.firestore {
 
     function isExistingOwner(userId) {
       return isOwner(userId) && resource != null;
+    }
+
+    function isAdmin() {
+        return request.auth.token.email == 'erno.santha@drmed.hu';
     }
   }
 }

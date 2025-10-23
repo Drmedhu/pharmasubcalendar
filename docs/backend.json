@@ -115,7 +115,7 @@
   },
   "auth": {
     "providers": [
-      "anonymous"
+      "email"
     ]
   },
   "firestore": {

@@ -18,7 +18,7 @@ export function Dashboard() {
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  const userIsAdmin = isAdmin(user?.uid);
+  const userIsAdmin = isAdmin(user);
 
   // User Profile data
   const userProfileRef = useMemoFirebase(() => {
@@ -124,7 +124,7 @@ export function Dashboard() {
   const shiftsWithDateObjects = React.useMemo(() => {
     return shifts?.map(s => ({
       ...s,
-      date: s.date instanceof Timestamp ? s.date.toDate() : new Date(s.date)
+      date: s.date instanceof Timestamp ? s.date.toDate() : new Date(s.date as string)
     })) || [];
   }, [shifts]);
 
@@ -136,7 +136,11 @@ export function Dashboard() {
   );
 
   if (isLoadingPharmacies || isLoadingShifts || isLoadingUserProfile) {
-    return <div>Loading...</div>;
+    return (
+        <div className="flex min-h-screen w-full flex-col items-center justify-center">
+            <p>Loading Dashboard...</p>
+        </div>
+    );
   }
 
   return (

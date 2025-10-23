@@ -1,19 +1,19 @@
 'use client';
 import { Dashboard } from '@/components/dashboard';
 import { Toaster } from '@/components/ui/toaster';
-import { useUser, useAuth } from '@/firebase';
-import { initiateAnonymousSignIn } from '@/firebase/non-blocking-login';
+import { useUser } from '@/firebase';
+import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
 export default function HomePage() {
   const { user, isUserLoading } = useUser();
-  const auth = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
-    if (!user && !isUserLoading) {
-      initiateAnonymousSignIn(auth);
+    if (!isUserLoading && !user) {
+      router.push('/login');
     }
-  }, [user, isUserLoading, auth]);
+  }, [user, isUserLoading, router]);
 
   if (isUserLoading || !user) {
     return (

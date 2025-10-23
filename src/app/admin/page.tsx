@@ -12,12 +12,12 @@ export default function AdminPage() {
     const router = useRouter();
 
     React.useEffect(() => {
-        if (!isUserLoading && !isAdmin(user?.uid)) {
+        if (!isUserLoading && !isAdmin(user)) {
             router.push('/');
         }
     }, [user, isUserLoading, router]);
 
-    if (isUserLoading || !user || !isAdmin(user.uid)) {
+    if (isUserLoading || !user || !isAdmin(user)) {
         return (
             <div className="flex min-h-screen w-full flex-col items-center justify-center">
                 <p>Loading or redirecting...</p>
