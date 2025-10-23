@@ -64,7 +64,7 @@ export default function ShiftCard({ shift, pharmacy, onBookShift, isPublicView =
         </div>
         <div className="flex items-center gap-2">
           <DollarSign className="h-4 w-4 text-muted-foreground" />
-          <span className="font-semibold text-foreground">${shift.payRate}/hr</span>
+          <span className="font-semibold text-foreground">{shift.payRate} Ft/hr</span>
         </div>
       </div>
 
@@ -85,7 +85,7 @@ export default function ShiftCard({ shift, pharmacy, onBookShift, isPublicView =
                     <p className='flex items-center gap-2'><strong className="w-16">Pharmacy:</strong> {pharmacy?.name}</p>
                     <p className='flex items-center gap-2'><strong className="w-16">Date:</strong> {format(shiftDate, 'EEEE, MMMM d, yyyy')}</p>
                     <p className='flex items-center gap-2'><strong className="w-16">Time:</strong> {shift.startTime} - {shift.endTime}</p>
-                    <p className='flex items-center gap-2'><strong className="w-16">Pay:</strong> ${shift.payRate}/hr</p>
+                    <p className='flex items-center gap-2'><strong className="w-16">Pay:</strong> {shift.payRate} Ft/hr</p>
                   </div>
                 </div>
               </AlertDialogDescription>

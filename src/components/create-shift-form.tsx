@@ -157,7 +157,7 @@ export default function CreateShiftForm({ pharmacies, onCreateShift, onFormSubmi
           name="payRate"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Pay Rate ($/hr)</FormLabel>
+              <FormLabel>Pay Rate (Ft/hr)</FormLabel>
               <FormControl>
                 <Input type="number" {...field} />
               </FormControl>
