@@ -24,7 +24,7 @@ export function Header({ pharmacies, onCreateShift, onCreatePharmacy, onDeletePh
         <div className="flex items-center gap-3">
           <Briefcase className="h-7 w-7 text-primary" />
           <h1 className="font-headline text-xl font-bold text-foreground">
-            helyettesítés
+            PharmaSub Calendar
           </h1>
         </div>
         <div className='flex gap-2'>
