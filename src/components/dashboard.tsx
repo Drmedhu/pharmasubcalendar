@@ -11,11 +11,14 @@ import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, doc, writeBatch, Timestamp, query, where, setDoc } from 'firebase/firestore';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { isAdmin } from '@/lib/admin';
 
 export function Dashboard() {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
+  
+  const userIsAdmin = isAdmin(user?.uid);
 
   // User Profile data
   const userProfileRef = useMemoFirebase(() => {
@@ -26,14 +29,20 @@ export function Dashboard() {
 
   const pharmaciesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    return query(collection(firestore, 'pharmacies'), where('userId', '==', user.uid));
-  }, [firestore, user]);
+    // Admin sees all, regular user sees their own
+    return userIsAdmin 
+      ? collection(firestore, 'pharmacies')
+      : query(collection(firestore, 'pharmacies'), where('userId', '==', user.uid));
+  }, [firestore, user, userIsAdmin]);
   const { data: pharmacies, isLoading: isLoadingPharmacies } = useCollection<Pharmacy>(pharmaciesQuery);
 
   const shiftsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    return query(collection(firestore, 'shifts'), where('userId', '==', user.uid));
-  }, [firestore, user]);
+     // Admin sees all, regular user sees their own
+    return userIsAdmin
+      ? collection(firestore, 'shifts')
+      : query(collection(firestore, 'shifts'), where('userId', '==', user.uid));
+  }, [firestore, user, userIsAdmin]);
   const { data: shifts, isLoading: isLoadingShifts } = useCollection<Shift>(shiftsQuery);
   
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date());

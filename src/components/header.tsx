@@ -1,4 +1,4 @@
-import { Briefcase, PlusCircle, Hospital, Trash2, Share2, User } from 'lucide-react';
+import { Briefcase, PlusCircle, Hospital, Trash2, Share2, User, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import CreateShiftForm from '@/components/create-shift-form';
@@ -10,6 +10,8 @@ import { useUser as useAuthUser } from '@/firebase';
 import { Input } from './ui/input';
 import { useToast } from '@/hooks/use-toast';
 import ProfileForm from './profile-form';
+import Link from 'next/link';
+import { isAdmin } from '@/lib/admin';
 
 interface HeaderProps {
     pharmacies: Pharmacy[];
@@ -45,6 +47,8 @@ export function Header({ pharmacies, onCreateShift, onCreatePharmacy, onDeletePh
     });
   };
 
+  const userIsAdmin = isAdmin(user?.uid);
+
   return (
     <header className="border-b bg-card">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 md:px-6">
@@ -55,6 +59,15 @@ export function Header({ pharmacies, onCreateShift, onCreatePharmacy, onDeletePh
           </h1>
         </div>
         <div className='flex gap-2'>
+          {userIsAdmin && (
+             <Button asChild variant="destructive">
+                <Link href="/admin">
+                    <Shield className="mr-2 h-4 w-4" />
+                    Admin
+                </Link>
+             </Button>
+          )}
+
           <Dialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline">
