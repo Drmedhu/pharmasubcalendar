@@ -32,18 +32,18 @@ export function Header({ pharmacies, onCreateShift, onCreatePharmacy, onDeletePh
             <DialogTrigger asChild>
               <Button variant="outline">
                 <Hospital className="mr-2 h-4 w-4" />
-                Gyógyszertárak
+                Pharmacies
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Gyógyszertárak kezelése</DialogTitle>
+                <DialogTitle>Manage Pharmacies</DialogTitle>
                 <DialogDescription>
-                    Itt kezelheti a gyógyszertárakat. Új gyógyszertár hozzáadása vagy meglévő törlése.
+                    Here you can manage pharmacies. Add a new pharmacy or delete an existing one.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
-                <h3 className="text-sm font-medium text-muted-foreground">Meglévő gyógyszertárak</h3>
+                <h3 className="text-sm font-medium text-muted-foreground">Existing Pharmacies</h3>
                 <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
                     {pharmacies.map(pharmacy => (
                         <div key={pharmacy.id} className="flex items-center justify-between p-2 rounded-md border">
@@ -53,14 +53,14 @@ export function Header({ pharmacies, onCreateShift, onCreatePharmacy, onDeletePh
                            </div>
                             <Button variant="ghost" size="icon" onClick={() => onDeletePharmacy(pharmacy.id)}>
                                 <Trash2 className="h-4 w-4 text-destructive" />
-                                <span className="sr-only">Törlés</span>
+                                <span className="sr-only">Delete</span>
                             </Button>
                         </div>
                     ))}
                 </div>
                 <Separator />
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">Új gyógyszertár létrehozása</h3>
+                  <h3 className="text-lg font-semibold mb-2">Create New Pharmacy</h3>
                   <CreatePharmacyForm onCreatePharmacy={onCreatePharmacy} onFormSubmit={() => {}} />
                 </div>
               </div>

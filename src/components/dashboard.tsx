@@ -85,8 +85,8 @@ export function Dashboard() {
     await batch.commit();
 
     toast({
-        title: 'Gyógyszertár törölve',
-        description: 'A gyógyszertár és a hozzá tartozó műszakok sikeresen törölve lettek.',
+        title: 'Pharmacy Deleted',
+        description: 'The pharmacy and its associated shifts have been successfully deleted.',
     });
   };
 

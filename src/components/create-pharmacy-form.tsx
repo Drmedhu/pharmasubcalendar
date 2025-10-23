@@ -18,8 +18,8 @@ import { useToast } from '@/hooks/use-toast';
 import type { Pharmacy } from '@/lib/types';
 
 const formSchema = z.object({
-  name: z.string().min(2, { message: 'A névnek legalább 2 karakter hosszúnak kell lennie.' }),
-  address: z.string().min(5, { message: 'A címnek legalább 5 karakter hosszúnak kell lennie.' }),
+  name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
+  address: z.string().min(5, { message: 'Address must be at least 5 characters.' }),
 });
 
 type CreatePharmacyFormValues = z.infer<typeof formSchema>;
@@ -42,8 +42,8 @@ export default function CreatePharmacyForm({ onCreatePharmacy, onFormSubmit }: C
   function onSubmit(values: CreatePharmacyFormValues) {
     const newPharmacy = onCreatePharmacy(values);
     toast({
-      title: 'Gyógyszertár létrehozva',
-      description: `Az új gyógyszertár sikeresen létrejött: ${newPharmacy.name}.`,
+      title: 'Pharmacy Created',
+      description: `The new pharmacy has been successfully created: ${newPharmacy.name}.`,
     });
     onFormSubmit();
     form.reset();
@@ -57,9 +57,9 @@ export default function CreatePharmacyForm({ onCreatePharmacy, onFormSubmit }: C
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Név</FormLabel>
+              <FormLabel>Name</FormLabel>
               <FormControl>
-                <Input placeholder="Gyógyszertár neve" {...field} />
+                <Input placeholder="Pharmacy Name" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -70,15 +70,15 @@ export default function CreatePharmacyForm({ onCreatePharmacy, onFormSubmit }: C
           name="address"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Cím</FormLabel>
+              <FormLabel>Address</FormLabel>
               <FormControl>
-                <Input placeholder="Utca, házszám, város" {...field} />
+                <Input placeholder="Street, number, city" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full">Gyógyszertár létrehozása</Button>
+        <Button type="submit" className="w-full">Create Pharmacy</Button>
       </form>
     </Form>
   );
