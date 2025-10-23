@@ -1,20 +1,28 @@
 "use client";
 
 import * as React from 'react';
-import type { Shift, Pharmacy } from '@/lib/types';
+import type { Shift, Pharmacy, UserProfile } from '@/lib/types';
 import ShiftCalendar from '@/components/shift-calendar';
 import ShiftList from '@/components/shift-list';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { format } from 'date-fns';
 import { Header } from '@/components/header';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
-import { collection, doc, writeBatch, Timestamp, query, where } from 'firebase/firestore';
+import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, doc, writeBatch, Timestamp, query, where, setDoc } from 'firebase/firestore';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export function Dashboard() {
   const { user } = useUser();
   const firestore = useFirestore();
+  const { toast } = useToast();
+
+  // User Profile data
+  const userProfileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'userProfiles', user.uid);
+  }, [firestore, user]);
+  const { data: userProfile, isLoading: isLoadingUserProfile } = useDoc<UserProfile>(userProfileRef);
 
   const pharmaciesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -29,14 +37,21 @@ export function Dashboard() {
   const { data: shifts, isLoading: isLoadingShifts } = useCollection<Shift>(shiftsQuery);
   
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date());
-  const { toast } = useToast();
+
 
   const handleBookShift = (shiftId: string) => {
-    if (!firestore || !user) return;
+    if (!firestore || !user || !userProfile) {
+      toast({
+        variant: "destructive",
+        title: "Profile needed",
+        description: "Please create your user profile before booking a shift.",
+      });
+      return;
+    };
     const shiftRef = doc(firestore, 'shifts', shiftId);
     updateDocumentNonBlocking(shiftRef, { 
       status: 'booked',
-      bookedBy: user.uid
+      bookedBy: user.uid // Storing user's auth UID
     });
   };
   
@@ -54,7 +69,7 @@ export function Dashboard() {
   };
   
   const handleCreatePharmacy = (newPharmacy: Omit<Pharmacy, 'id'>) => {
-     if (!firestore || !user) return { ...newPharmacy, id: ''};
+     if (!firestore || !user) return { ...newPharmacy, id: '', email: newPharmacy.email || ''};
     const pharmaciesCollection = collection(firestore, 'pharmacies');
     addDocumentNonBlocking(pharmaciesCollection, {
       ...newPharmacy,
@@ -68,11 +83,9 @@ export function Dashboard() {
     if (!firestore) return;
     const batch = writeBatch(firestore);
     
-    // Delete the pharmacy
     const pharmacyRef = doc(firestore, 'pharmacies', pharmacyId);
     batch.delete(pharmacyRef);
 
-    // Delete associated shifts
     if (shifts) {
         shifts.forEach(shift => {
             if (shift.pharmacyId === pharmacyId) {
@@ -90,6 +103,15 @@ export function Dashboard() {
     });
   };
 
+  const handleSaveProfile = async (profileData: Omit<UserProfile, 'id' | 'userId'>) => {
+    if (!userProfileRef) return;
+    await setDoc(userProfileRef, { ...profileData, userId: userProfileRef.id }, { merge: true });
+    toast({
+      title: 'Profile Saved',
+      description: 'Your profile has been successfully updated.',
+    });
+  };
+
   const shiftsWithDateObjects = React.useMemo(() => {
     return shifts?.map(s => ({
       ...s,
@@ -104,13 +126,20 @@ export function Dashboard() {
       shift.date.toDateString() === selectedDate.toDateString()
   );
 
-  if (isLoadingPharmacies || isLoadingShifts) {
+  if (isLoadingPharmacies || isLoadingShifts || isLoadingUserProfile) {
     return <div>Loading...</div>;
   }
 
   return (
     <>
-      <Header pharmacies={pharmacies || []} onCreateShift={handleCreateShift} onCreatePharmacy={handleCreatePharmacy} onDeletePharmacy={handleDeletePharmacy} />
+      <Header 
+        pharmacies={pharmacies || []} 
+        onCreateShift={handleCreateShift} 
+        onCreatePharmacy={handleCreatePharmacy} 
+        onDeletePharmacy={handleDeletePharmacy}
+        userProfile={userProfile}
+        onSaveProfile={handleSaveProfile}
+      />
       <div className="container mx-auto grid max-w-7xl grid-cols-1 gap-8 p-4 md:grid-cols-3 lg:grid-cols-5 md:p-6 lg:p-8">
         <div className="lg:col-span-3 md:col-span-2">
           <Card>

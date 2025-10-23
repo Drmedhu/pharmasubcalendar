@@ -1,27 +1,32 @@
-import { Briefcase, PlusCircle, Hospital, Trash2, Share2 } from 'lucide-react';
+import { Briefcase, PlusCircle, Hospital, Trash2, Share2, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import CreateShiftForm from '@/components/create-shift-form';
-import type { Pharmacy, Shift } from '@/lib/types';
+import type { Pharmacy, Shift, UserProfile } from '@/lib/types';
 import * as React from 'react';
 import CreatePharmacyForm from './create-pharmacy-form';
 import { Separator } from './ui/separator';
-import { useUser } from '@/firebase';
+import { useUser as useAuthUser } from '@/firebase';
 import { Input } from './ui/input';
 import { useToast } from '@/hooks/use-toast';
+import ProfileForm from './profile-form';
 
 interface HeaderProps {
     pharmacies: Pharmacy[];
     onCreateShift: (newShift: Omit<Shift, 'id' | 'status'>) => void;
     onCreatePharmacy: (newPharmacy: Omit<Pharmacy, 'id'>) => Pharmacy;
     onDeletePharmacy: (pharmacyId: string) => void;
+    userProfile: UserProfile | null;
+    onSaveProfile: (profileData: Omit<UserProfile, 'id' | 'userId'>) => void;
 }
 
-export function Header({ pharmacies, onCreateShift, onCreatePharmacy, onDeletePharmacy }: HeaderProps) {
+export function Header({ pharmacies, onCreateShift, onCreatePharmacy, onDeletePharmacy, userProfile, onSaveProfile }: HeaderProps) {
   const [shiftDialogOpen, setShiftDialogOpen] = React.useState(false);
   const [pharmacyDialogOpen, setPharmacyDialogOpen] = React.useState(false);
   const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
-  const { user } = useUser();
+  const [profileDialogOpen, setProfileDialogOpen] = React.useState(false);
+  
+  const { user } = useAuthUser();
   const { toast } = useToast();
 
   const shareUrl = React.useMemo(() => {
@@ -50,6 +55,24 @@ export function Header({ pharmacies, onCreateShift, onCreatePharmacy, onDeletePh
           </h1>
         </div>
         <div className='flex gap-2'>
+          <Dialog open={profileDialogOpen} onOpenChange={setProfileDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <User className="mr-2 h-4 w-4" />
+                My Profile
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>My Profile</DialogTitle>
+                    <DialogDescription>
+                        Manage your personal information. This will be used when you book a shift.
+                    </DialogDescription>
+                </DialogHeader>
+                <ProfileForm userProfile={userProfile} onSave={onSaveProfile} onFormSubmit={() => setProfileDialogOpen(false)} />
+            </DialogContent>
+          </Dialog>
+
           <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline">

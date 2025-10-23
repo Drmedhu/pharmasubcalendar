@@ -14,6 +14,11 @@
           "type": "string",
           "description": "Address of the pharmacy."
         },
+        "email": {
+          "type": "string",
+          "description": "Notification email for the pharmacy.",
+          "format": "email"
+        },
         "userId": {
           "type": "string",
           "description": "The ID of the user who created the pharmacy."
@@ -22,6 +27,7 @@
       "required": [
         "name",
         "address",
+        "email",
         "userId"
       ]
     },
@@ -62,7 +68,7 @@
         },
         "bookedBy": {
           "type": "string",
-          "description": "Reference to the user who booked the shift. Nullable if the shift isn't booked."
+          "description": "Reference to the UserProfile who booked the shift. Nullable if the shift isn't booked."
         },
         "userId": {
           "type": "string",
@@ -79,6 +85,32 @@
         "userId",
         "role"
       ]
+    },
+    "UserProfile": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "User Profile",
+        "type": "object",
+        "description": "Represents a substitute pharmacist or assistant.",
+        "properties": {
+            "userId": {
+                "type": "string",
+                "description": "The ID of the authenticated user."
+            },
+            "name": {
+                "type": "string",
+                "description": "Name of the user."
+            },
+            "email": {
+                "type": "string",
+                "description": "Email of the user.",
+                "format": "email"
+            },
+            "role": {
+                "type": "string",
+                "enum": ["pharmacist", "assistant"]
+            }
+        },
+        "required": ["userId", "name", "email", "role"]
     }
   },
   "auth": {
@@ -106,6 +138,16 @@
             "$ref": "#/entities/Shift"
           },
           "description": "Stores shift information."
+        }
+      },
+      {
+        "path": "/userProfiles/{userId}",
+        "definition": {
+            "entityName": "UserProfile",
+            "schema": {
+                "$ref": "#/entities/UserProfile"
+            },
+            "description": "Stores user profile information. The document ID is the user's auth UID."
         }
       }
     ]

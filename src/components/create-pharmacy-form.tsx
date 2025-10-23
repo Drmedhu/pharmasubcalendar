@@ -20,6 +20,7 @@ import type { Pharmacy } from '@/lib/types';
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   address: z.string().min(5, { message: 'Address must be at least 5 characters.' }),
+  email: z.string().email({ message: 'Please enter a valid email address.' }),
 });
 
 type CreatePharmacyFormValues = z.infer<typeof formSchema>;
@@ -36,6 +37,7 @@ export default function CreatePharmacyForm({ onCreatePharmacy, onFormSubmit }: C
     defaultValues: {
       name: '',
       address: '',
+      email: '',
     },
   });
 
@@ -73,6 +75,19 @@ export default function CreatePharmacyForm({ onCreatePharmacy, onFormSubmit }: C
               <FormLabel>Address</FormLabel>
               <FormControl>
                 <Input placeholder="Street, number, city" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Notification Email</FormLabel>
+              <FormControl>
+                <Input placeholder="email@example.com" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
