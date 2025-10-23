@@ -1,4 +1,11 @@
-// This file is intentionally left blank.
-// Firebase configuration is now loaded from environment variables in src/firebase/index.ts
-// to ensure security and flexibility for different environments (development vs. production).
-// Refer to that file for how NEXT_PUBLIC_FIREBASE_* variables are used.
+// This file contains the Firebase configuration.
+// IMPORTANT: Replace the placeholder values with your actual Firebase project configuration.
+
+export const firebaseConfig = {
+  apiKey: "REPLACE_WITH_YOUR_API_KEY",
+  authDomain: "REPLACE_WITH_YOUR_AUTH_DOMAIN",
+  projectId: "REPLACE_WITH_YOUR_PROJECT_ID",
+  storageBucket: "REPLACE_WITH_YOUR_STORAGE_BUCKET",
+  messagingSenderId: "REPLACE_WITH_YOUR_MESSAGING_SENDER_ID",
+  appId: "REPLACE_WITH_YOUR_APP_ID",
+};

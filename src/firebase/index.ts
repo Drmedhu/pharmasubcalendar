@@ -3,20 +3,12 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore'
+import { firebaseConfig } from './config'; // Import from config file
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
-  const firebaseConfig = {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  };
-  
   if (!firebaseConfig.apiKey) {
-    console.error("Firebase API key is missing. Make sure NEXT_PUBLIC_FIREBASE_API_KEY is set in your .env.local file.");
+    console.error("Firebase configuration is missing or incomplete. Please check src/firebase/config.ts");
     // Return a dummy object or throw an error to prevent further execution
     return {
         firebaseApp: null,
@@ -26,23 +18,8 @@ export function initializeFirebase() {
   }
 
   if (!getApps().length) {
-    if (process.env.NODE_ENV === 'development') {
-      // In development, always initialize with the config object
-      // This relies on .env.local being properly set up
-      const firebaseApp = initializeApp(firebaseConfig);
-      return getSdks(firebaseApp);
-    } else {
-      // In production, try automatic initialization first (for App Hosting)
-      let firebaseApp;
-      try {
-        firebaseApp = initializeApp();
-      } catch (e) {
-        console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
-        // Fallback for other production-like environments (e.g., Netlify)
-        firebaseApp = initializeApp(firebaseConfig);
-      }
-      return getSdks(firebaseApp);
-    }
+    const firebaseApp = initializeApp(firebaseConfig);
+    return getSdks(firebaseApp);
   }
 
   // If already initialized, return the SDKs with the already initialized App
