@@ -25,7 +25,7 @@ const formSchema = z.object({
 type CreatePharmacyFormValues = z.infer<typeof formSchema>;
 
 interface CreatePharmacyFormProps {
-  onCreatePharmacy: (newPharmacy: Omit<Pharmacy, 'id'>) => void;
+  onCreatePharmacy: (newPharmacy: Omit<Pharmacy, 'id'>) => Pharmacy;
   onFormSubmit: () => void;
 }
 
@@ -40,10 +40,10 @@ export default function CreatePharmacyForm({ onCreatePharmacy, onFormSubmit }: C
   });
 
   function onSubmit(values: CreatePharmacyFormValues) {
-    onCreatePharmacy(values);
+    const newPharmacy = onCreatePharmacy(values);
     toast({
       title: 'Gyógyszertár létrehozva',
-      description: `Az új gyógyszertár sikeresen létrejött: ${values.name}.`,
+      description: `Az új gyógyszertár sikeresen létrejött: ${newPharmacy.name}.`,
     });
     onFormSubmit();
     form.reset();
