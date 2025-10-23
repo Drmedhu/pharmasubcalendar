@@ -3,7 +3,7 @@ import './globals.css';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 
 export const metadata: Metadata = {
-  title: 'PharmaSub Calendar',
+  title: 'helyettesítés',
   description: 'A scheduling app for substitute pharmacists.',
 };
 
