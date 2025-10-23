@@ -9,7 +9,7 @@ import { format } from 'date-fns';
 import { Header } from '@/components/header';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
-import { collection, doc, writeBatch, Timestamp } from 'firebase/firestore';
+import { collection, doc, writeBatch, Timestamp, query, where } from 'firebase/firestore';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export function Dashboard() {
@@ -17,15 +17,15 @@ export function Dashboard() {
   const firestore = useFirestore();
 
   const pharmaciesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'pharmacies');
-  }, [firestore]);
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'pharmacies'), where('userId', '==', user.uid));
+  }, [firestore, user]);
   const { data: pharmacies, isLoading: isLoadingPharmacies } = useCollection<Pharmacy>(pharmaciesQuery);
 
   const shiftsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'shifts');
-  }, [firestore]);
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'shifts'), where('userId', '==', user.uid));
+  }, [firestore, user]);
   const { data: shifts, isLoading: isLoadingShifts } = useCollection<Shift>(shiftsQuery);
   
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date());
@@ -41,7 +41,7 @@ export function Dashboard() {
   };
   
   const handleCreateShift = (newShift: Omit<Shift, 'id' | 'status'>) => {
-    if (!firestore) return;
+    if (!firestore || !user) return;
     const shiftsCollection = collection(firestore, 'shifts');
     const { date, ...restOfShift } = newShift;
     const dateAsTimestamp = Timestamp.fromDate(new Date(date));
@@ -49,16 +49,16 @@ export function Dashboard() {
       ...restOfShift,
       date: dateAsTimestamp,
       status: 'available',
-      userId: user?.uid,
+      userId: user.uid,
     });
   };
   
   const handleCreatePharmacy = (newPharmacy: Omit<Pharmacy, 'id'>) => {
-     if (!firestore) return { ...newPharmacy, id: ''};
+     if (!firestore || !user) return { ...newPharmacy, id: ''};
     const pharmaciesCollection = collection(firestore, 'pharmacies');
     addDocumentNonBlocking(pharmaciesCollection, {
       ...newPharmacy,
-      userId: user?.uid,
+      userId: user.uid,
     });
     // This return is optimistic. A better approach would be to wait for the doc ID.
     return { ...newPharmacy, id: `ph_${Date.now()}` };

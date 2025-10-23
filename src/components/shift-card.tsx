@@ -23,9 +23,10 @@ interface ShiftCardProps {
   shift: Shift;
   pharmacy?: Pharmacy;
   onBookShift: (shiftId: string) => void;
+  isPublicView?: boolean;
 }
 
-export default function ShiftCard({ shift, pharmacy, onBookShift }: ShiftCardProps) {
+export default function ShiftCard({ shift, pharmacy, onBookShift, isPublicView = false }: ShiftCardProps) {
   const { toast } = useToast();
 
   const handleConfirmBooking = () => {
@@ -67,7 +68,7 @@ export default function ShiftCard({ shift, pharmacy, onBookShift }: ShiftCardPro
         </div>
       </div>
 
-      {shift.status === 'available' && (
+      {shift.status === 'available' && !isPublicView && (
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button size="sm" className="mt-2">

@@ -10,9 +10,10 @@ interface ShiftListProps {
   shifts: Shift[];
   pharmacies: Pharmacy[];
   onBookShift: (shiftId: string) => void;
+  isPublicView?: boolean;
 }
 
-export default function ShiftList({ shifts, pharmacies, onBookShift }: ShiftListProps) {
+export default function ShiftList({ shifts, pharmacies, onBookShift, isPublicView = false }: ShiftListProps) {
   if (shifts.length === 0) {
     return (
       <div className="flex h-64 items-center justify-center rounded-md border border-dashed bg-muted/50">
@@ -32,6 +33,7 @@ export default function ShiftList({ shifts, pharmacies, onBookShift }: ShiftList
                 shift={shift}
                 pharmacy={pharmacy}
                 onBookShift={onBookShift}
+                isPublicView={isPublicView}
               />
               <Separator className="last:hidden" />
             </React.Fragment>

@@ -1,4 +1,4 @@
-import { Briefcase, PlusCircle, Hospital, Trash2 } from 'lucide-react';
+import { Briefcase, PlusCircle, Hospital, Trash2, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import CreateShiftForm from '@/components/create-shift-form';
@@ -6,6 +6,9 @@ import type { Pharmacy, Shift } from '@/lib/types';
 import * as React from 'react';
 import CreatePharmacyForm from './create-pharmacy-form';
 import { Separator } from './ui/separator';
+import { useUser } from '@/firebase';
+import { Input } from './ui/input';
+import { useToast } from '@/hooks/use-toast';
 
 interface HeaderProps {
     pharmacies: Pharmacy[];
@@ -17,6 +20,25 @@ interface HeaderProps {
 export function Header({ pharmacies, onCreateShift, onCreatePharmacy, onDeletePharmacy }: HeaderProps) {
   const [shiftDialogOpen, setShiftDialogOpen] = React.useState(false);
   const [pharmacyDialogOpen, setPharmacyDialogOpen] = React.useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = React.useState(false);
+  const { user } = useUser();
+  const { toast } = useToast();
+
+  const shareUrl = React.useMemo(() => {
+    if (typeof window !== 'undefined' && user) {
+      return `${window.location.origin}/public/${user.uid}`;
+    }
+    return '';
+  }, [user]);
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(shareUrl).then(() => {
+        toast({
+            title: 'Link Copied!',
+            description: 'The public calendar link has been copied to your clipboard.',
+        });
+    });
+  };
 
   return (
     <header className="border-b bg-card">
@@ -28,6 +50,29 @@ export function Header({ pharmacies, onCreateShift, onCreatePharmacy, onDeletePh
           </h1>
         </div>
         <div className='flex gap-2'>
+          <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Share2 className="mr-2 h-4 w-4" />
+                Share
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Share Your Calendar</DialogTitle>
+                <DialogDescription>
+                  Anyone with this link will be able to view your calendar.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex items-center space-x-2">
+                <Input value={shareUrl} readOnly />
+                <Button onClick={copyToClipboard} size="sm" className='shrink-0'>
+                  Copy Link
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
           <Dialog open={pharmacyDialogOpen} onOpenChange={setPharmacyDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline">
