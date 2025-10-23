@@ -9,8 +9,8 @@ import { format } from 'date-fns';
 import { Header } from '@/components/header';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, doc, writeBatch, Timestamp, query, where, setDoc } from 'firebase/firestore';
-import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { collection, doc, writeBatch, Timestamp, query, where } from 'firebase/firestore';
+import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { isAdmin } from '@/lib/admin';
 
 export function Dashboard() {
@@ -112,9 +112,9 @@ export function Dashboard() {
     });
   };
 
-  const handleSaveProfile = async (profileData: Omit<UserProfile, 'id' | 'userId'>) => {
+  const handleSaveProfile = (profileData: Omit<UserProfile, 'id' | 'userId'>) => {
     if (!userProfileRef) return;
-    await setDoc(userProfileRef, { ...profileData, userId: userProfileRef.id }, { merge: true });
+    setDocumentNonBlocking(userProfileRef, { ...profileData, userId: userProfileRef.id }, { merge: true });
     toast({
       title: 'Profile Saved',
       description: 'Your profile has been successfully updated.',
