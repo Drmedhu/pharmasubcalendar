@@ -21,17 +21,20 @@ export default function AdminPage() {
 
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
+    // Combine loading states
     const isLoading = isAuthLoading || isProfileLoading;
-    const isUserAdmin = !isLoading && !!userProfile && isAdmin(userProfile);
 
     React.useEffect(() => {
-        // We only want to redirect if loading is complete and the user is definitively not an admin.
-        if (!isLoading && !isUserAdmin) {
-            router.push('/');
+        // Only run logic when loading is complete
+        if (!isLoading) {
+            // If there's no user, or the profile doesn't exist, or the user is not an admin, redirect.
+            if (!user || !userProfile || !isAdmin(userProfile)) {
+                router.push('/');
+            }
         }
-    }, [isLoading, isUserAdmin, router]);
+    }, [isLoading, user, userProfile, router]);
 
-    // 1. While loading, show a loading indicator.
+    // 1. While loading, show a clear loading indicator.
     if (isLoading) {
         return (
             <div className="flex min-h-screen w-full flex-col items-center justify-center">
@@ -39,9 +42,10 @@ export default function AdminPage() {
             </div>
         );
     }
-    
-    // 2. After loading, if they are an admin, show the dashboard.
-    if (isUserAdmin) {
+
+    // 2. After loading, if the user is an admin, show the dashboard.
+    // The useEffect above will handle redirection for non-admins, so we just need to check for admin status here.
+    if (userProfile && isAdmin(userProfile)) {
         return (
             <div className="flex min-h-screen w-full flex-col">
                 <PublicHeader />
@@ -51,12 +55,12 @@ export default function AdminPage() {
             </div>
         );
     }
-
-    // 3. After loading, if they are NOT an admin, they will be redirected by the useEffect.
-    // Show a message until the redirect happens.
+    
+    // 3. If not loading and not an admin, show a redirecting message.
+    // This state will be briefly visible before the useEffect kicks in.
     return (
         <div className="flex min-h-screen w-full flex-col items-center justify-center">
-            <p>Access denied. Redirecting...</p>
+            <p>Access Denied. Redirecting...</p>
         </div>
     );
 }
