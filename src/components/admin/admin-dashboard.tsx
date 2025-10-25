@@ -1,26 +1,31 @@
 "use client";
 
 import * as React from 'react';
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { Shift, UserProfile } from '@/lib/types';
-import { collection, doc } from 'firebase/firestore';
+import { collection } from 'firebase/firestore';
 import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import UserManagementTab from './user-management-tab';
 import ShiftManagementTab from './shift-management-tab';
+import { doc } from 'firebase/firestore';
 
 export function AdminDashboard() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const { data: profiles, isLoading: isLoadingProfiles } = useCollection<UserProfile>(
-    firestore ? collection(firestore, 'userProfiles') : null
+  const profilesQuery = useMemoFirebase(
+    () => (firestore ? collection(firestore, 'userProfiles') : null),
+    [firestore]
   );
+  const { data: profiles, isLoading: isLoadingProfiles } = useCollection<UserProfile>(profilesQuery);
 
-  const { data: shifts, isLoading: isLoadingShifts } = useCollection<Shift>(
-    firestore ? collection(firestore, 'shifts') : null
+  const shiftsQuery = useMemoFirebase(
+    () => (firestore ? collection(firestore, 'shifts') : null),
+    [firestore]
   );
+  const { data: shifts, isLoading: isLoadingShifts } = useCollection<Shift>(shiftsQuery);
 
   const handleCancelBooking = (shiftId: string) => {
     if (!firestore) return;
