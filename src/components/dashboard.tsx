@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { format } from 'date-fns';
 import { Header } from '@/components/header';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
+import { useCollection, useFirestore, useUser, useDoc } from '@/firebase';
 import { collection, doc, query, where, Timestamp } from 'firebase/firestore';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { isAdmin } from '@/lib/admin';
@@ -23,7 +23,7 @@ export function Dashboard() {
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date());
   
   // Step 1: Fetch user profile first. This is the only query that runs initially.
-  const userProfileRef = useMemoFirebase(() => {
+  const userProfileRef = React.useMemo(() => {
     if (!firestore || !user) return null;
     return doc(firestore, 'userProfiles', user.uid);
   }, [firestore, user]);
@@ -42,13 +42,13 @@ export function Dashboard() {
   
   // -- ADMIN DATA --
   // This query only runs if the user is confirmed to be an admin.
-  const adminProfilesQuery = useMemoFirebase(() => {
+  const adminProfilesQuery = React.useMemo(() => {
       if (!firestore || !userIsAdmin) return null;
       return collection(firestore, 'userProfiles');
   }, [firestore, userIsAdmin]);
   const { data: adminProfiles } = useCollection<UserProfile>(adminProfilesQuery);
 
-  const adminShiftsQuery = useMemoFirebase(() => {
+  const adminShiftsQuery = React.useMemo(() => {
       if (!firestore || !userIsAdmin) return null;
       return collection(firestore, 'shifts');
   }, [firestore, userIsAdmin]);
@@ -56,7 +56,7 @@ export function Dashboard() {
 
 
   // -- NON-ADMIN DATA --
-  const nonAdminPharmaciesQuery = useMemoFirebase(() => {
+  const nonAdminPharmaciesQuery = React.useMemo(() => {
     // This query should NOT run for admins. It runs after profile is loaded for non-admins.
     if (isProfileLoading || !firestore || !user || userIsAdmin) return null;
     if (isPharmacy) return query(collection(firestore, 'pharmacies'), where('userId', '==', user.uid));
@@ -65,7 +65,7 @@ export function Dashboard() {
   }, [firestore, user, isProfileLoading, isPharmacy, isSubstitute, userIsAdmin]);
   const { data: nonAdminPharmacies } = useCollection<Pharmacy>(nonAdminPharmaciesQuery);
 
-  const nonAdminShiftsQuery = useMemoFirebase(() => {
+  const nonAdminShiftsQuery = React.useMemo(() => {
     // This query should NOT run for admins.
     if (isProfileLoading || !firestore || !user || userIsAdmin) return null;
     if (isPharmacy) return query(collection(firestore, 'shifts'), where('userId', '==', user.uid));

@@ -7,7 +7,7 @@ import ShiftList from '@/components/shift-list';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { format } from 'date-fns';
 import { PublicHeader } from '@/components/public-header';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore } from '@/firebase';
 import { collection, query, where, Timestamp, getDocs } from 'firebase/firestore';
 
 interface PublicDashboardProps {
@@ -17,13 +17,13 @@ interface PublicDashboardProps {
 export function PublicDashboard({ userId }: PublicDashboardProps) {
   const firestore = useFirestore();
 
-  const pharmaciesQuery = useMemoFirebase(() => {
+  const pharmaciesQuery = React.useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'pharmacies'), where('userId', '==', userId));
   }, [firestore, userId]);
   const { data: pharmacies, isLoading: isLoadingPharmacies } = useCollection<Pharmacy>(pharmaciesQuery);
 
-  const shiftsQuery = useMemoFirebase(() => {
+  const shiftsQuery = React.useMemo(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'shifts'), where('userId', '==', userId));
   }, [firestore, userId]);
