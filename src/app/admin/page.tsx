@@ -21,25 +21,33 @@ export default function AdminPage() {
 
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
-    const isUserAdmin = React.useMemo(() => isAdmin(userProfile), [userProfile]);
     const isLoading = isAuthLoading || isProfileLoading;
 
     React.useEffect(() => {
         // Only run redirection logic after all loading is complete.
         if (!isLoading) {
             // After loading, if there is no user, no profile, or the user is not an admin, redirect.
-            if (!user || !userProfile || !isUserAdmin) {
+            if (!user || !userProfile || !isAdmin(userProfile)) {
                 router.push('/');
             }
         }
-    }, [isLoading, user, userProfile, isUserAdmin, router]);
+    }, [isLoading, user, userProfile, router]);
     
-    // Show a loading screen while we verify auth and profile.
-    // This state is also shown if the user is not an admin, just before the redirect happens.
-    if (isLoading || !isUserAdmin) {
+    // While loading, or if the user data is not yet available, show a loading screen.
+    if (isLoading) {
         return (
             <div className="flex min-h-screen w-full flex-col items-center justify-center">
                 <p>Verifying admin permissions...</p>
+            </div>
+        );
+    }
+    
+    // After loading, if they are not an admin, they will be redirected. 
+    // We can show a message until the redirect happens.
+    if (!isAdmin(userProfile)) {
+         return (
+            <div className="flex min-h-screen w-full flex-col items-center justify-center">
+                <p>Access denied. Redirecting...</p>
             </div>
         );
     }
