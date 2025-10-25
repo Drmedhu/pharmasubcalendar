@@ -86,20 +86,20 @@ export default function LoginPage() {
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
         const newUser = userCredential.user;
 
+        // Ensure user profile is created immediately after registration
         if (newUser) {
             const userProfileRef = doc(firestore, 'userProfiles', newUser.uid);
             const profileData = {
                 userId: newUser.uid,
                 email: values.email,
                 name: values.name,
-                role: values.role // This was missing
+                role: values.role
             };
-            // Use await here to ensure profile is created before redirecting
+            // Use await to ensure profile is created before any potential redirect or state change
             await setDoc(userProfileRef, profileData);
         }
         
         // The useEffect will handle the redirect once `useUser` is updated.
-        // No need to manually push here.
     } catch (error) {
         const authError = error as AuthError;
         setAuthError(authError.message);

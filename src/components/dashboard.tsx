@@ -21,44 +21,47 @@ export function Dashboard() {
   
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date());
 
+  // 1. Fetch user profile first
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return doc(firestore, 'userProfiles', user.uid);
   }, [firestore, user]);
-
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
   const userIsAdmin = React.useMemo(() => userProfile ? isAdmin(userProfile) : false, [userProfile]);
   const isPharmacy = userProfile?.role === 'pharmacy';
   const isSubstitute = userProfile?.role === 'substitute';
 
-  // --- Data Hooks for different roles ---
+  // --- Data Hooks ---
+  // These will only run *after* the user profile is loaded and the role is known.
 
-  // Pharmacies
+  // 2. Fetch data based on role
   const pharmaciesQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (isProfileLoading || !firestore || !user) return null; // Wait for profile
     if (isPharmacy) return query(collection(firestore, 'pharmacies'), where('userId', '==', user.uid));
     if (isSubstitute || userIsAdmin) return collection(firestore, 'pharmacies');
     return null;
-  }, [firestore, user, isPharmacy, isSubstitute, userIsAdmin]);
+  }, [firestore, user, isProfileLoading, isPharmacy, isSubstitute, userIsAdmin]);
   const { data: pharmacies, isLoading: isLoadingPharmacies } = useCollection<Pharmacy>(pharmaciesQuery);
 
-  // Shifts
   const shiftsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (isProfileLoading || !firestore || !user) return null; // Wait for profile
     if (isPharmacy) return query(collection(firestore, 'shifts'), where('userId', '==', user.uid));
     if (isSubstitute || userIsAdmin) return collection(firestore, 'shifts');
     return null;
-  }, [firestore, user, isPharmacy, isSubstitute, userIsAdmin]);
+  }, [firestore, user, isProfileLoading, isPharmacy, isSubstitute, userIsAdmin]);
   const { data: shifts, isLoading: isLoadingShifts } = useCollection<Shift>(shiftsQuery);
-
-  // Profiles (for admin)
-  const profilesQuery = useMemoFirebase(() => (firestore && userIsAdmin ? collection(firestore, 'userProfiles') : null), [firestore, userIsAdmin]);
+  
+  const profilesQuery = useMemoFirebase(() => {
+    // Only fetch all profiles if the user is an admin AND their profile has loaded
+    if (isProfileLoading || !firestore || !userIsAdmin) return null;
+    return collection(firestore, 'userProfiles');
+  }, [firestore, isProfileLoading, userIsAdmin]);
   const { data: profiles, isLoading: isLoadingProfiles } = useCollection<UserProfile>(profilesQuery);
 
+  // Consolidated loading state
+  const isLoading = isAuthLoading || isProfileLoading || (userIsAdmin && isLoadingProfiles) || isLoadingShifts || isLoadingPharmacies;
 
-  const isLoading = isAuthLoading || isProfileLoading || isLoadingPharmacies || isLoadingShifts || (userIsAdmin && isLoadingProfiles);
-  
   // --- Event Handlers ---
 
   const handleBookShift = (shiftId: string) => {

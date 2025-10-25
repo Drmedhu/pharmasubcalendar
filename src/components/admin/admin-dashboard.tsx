@@ -15,6 +15,7 @@ interface AdminDashboardProps {
 
 export function AdminDashboard({ profiles, shifts, onCancelBooking }: AdminDashboardProps) {
   
+  // Add a defensive check to ensure data is ready before rendering tabs
   if (!profiles || !shifts) {
     return (
         <div className="flex min-h-screen w-full flex-col items-center justify-center">
