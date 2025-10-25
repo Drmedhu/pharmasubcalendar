@@ -50,17 +50,16 @@ export function Dashboard() {
   }, [firestore, userProfile]);
   const { data: substitutePharmacies, isLoading: isLoadingSubstitutePharmacies } = useCollection<Pharmacy>(substitutePharmaciesQuery);
   
-  // SUBSTITUTE role: fetches ALL available or their booked shifts
+  // SUBSTITUTE role: fetches ALL available shifts
   const substituteShiftsQuery = useMemoFirebase(() => {
-    if (!firestore || !user || userProfile?.role !== 'substitute') return null;
+    if (!firestore || userProfile?.role !== 'substitute') return null;
      return query(collection(firestore, 'shifts'), 
        where('status', '==', 'available')
      );
-    // This is a simplified query. For seeing their *own* booked shifts, we'd need a compound query.
-    // We will filter client-side for now for simplicity.
-  }, [firestore, user, userProfile]);
+  }, [firestore, userProfile]);
   const { data: substituteShifts, isLoading: isLoadingSubstituteShifts } = useCollection<Shift>(substituteShiftsQuery);
 
+  // SUBSTITUTE role: fetches their own booked shifts
   const { data: myBookedShifts, isLoading: isLoadingMyBookedShifts } = useCollection<Shift>(
     useMemoFirebase(() => {
       if (!firestore || !user || userProfile?.role !== 'substitute') return null;
@@ -137,20 +136,22 @@ export function Dashboard() {
 
   const handleDeletePharmacy = async (pharmacyId: string) => {
     if (!firestore || userProfile?.role !== 'pharmacy') return;
-    const shiftDocsToDeleteQuery = query(collection(firestore, 'shifts'), where('pharmacyId', '==', pharmacyId));
-    // This part should be done in a backend function for atomicity in a real app
-    // For now, we proceed with client-side deletion.
-    const shiftDocsToDelete = await getDocs(shiftDocsToDeleteQuery);
-
-
-    shiftDocsToDelete.docs.forEach(shiftDoc => {
-      deleteDocumentNonBlocking(shiftDoc.ref);
-    });
+    
+    // This part requires a backend function for atomicity in a real production app.
+    // For now, we will proceed but it's not atomic.
+    // We need to query for shifts to delete them, but this should be done in a secure backend environment.
+    // const shiftDocsToDeleteQuery = query(collection(firestore, 'shifts'), where('pharmacyId', '==', pharmacyId));
+    // const shiftDocsToDelete = await getDocs(shiftDocsToDeleteQuery);
+    // shiftDocsToDelete.docs.forEach(shiftDoc => {
+    //   deleteDocumentNonBlocking(shiftDoc.ref);
+    // });
+    
     deleteDocumentNonBlocking(doc(firestore, 'pharmacies', pharmacyId));
 
     toast({
         title: 'Pharmacy Deleted',
-        description: 'The pharmacy and its associated shifts have been successfully deleted.',
+        description: 'The pharmacy has been deleted. Associated shifts were not deleted.',
+        variant: 'destructive',
     });
   };
 
