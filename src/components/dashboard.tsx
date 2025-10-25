@@ -22,14 +22,14 @@ export function Dashboard() {
   
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date());
   
-  // Step 1: Fetch user profile first. This is the only query that runs initially.
+  // 1. Fetch user profile first. This is the only query that runs initially.
   const userProfileRef = React.useMemo(() => {
     if (!firestore || !user) return null;
     return doc(firestore, 'userProfiles', user.uid);
   }, [firestore, user]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
-  // Step 2: Determine roles and admin status *after* profile is loaded.
+  // 2. Determine roles and admin status *after* profile is loaded.
   const userIsAdmin = React.useMemo(() => {
     if (isProfileLoading || !userProfile) return false;
     return isAdmin(userProfile);
@@ -41,7 +41,6 @@ export function Dashboard() {
   // --- DATA FETCHING (Now dependent on profile loading status) ---
   
   // -- ADMIN DATA --
-  // This query only runs if the user is confirmed to be an admin.
   const adminProfilesQuery = React.useMemo(() => {
       if (!firestore || !userIsAdmin) return null;
       return collection(firestore, 'userProfiles');
@@ -57,19 +56,17 @@ export function Dashboard() {
 
   // -- NON-ADMIN DATA --
   const nonAdminPharmaciesQuery = React.useMemo(() => {
-    // This query should NOT run for admins. It runs after profile is loaded for non-admins.
     if (isProfileLoading || !firestore || !user || userIsAdmin) return null;
     if (isPharmacy) return query(collection(firestore, 'pharmacies'), where('userId', '==', user.uid));
-    if (isSubstitute) return collection(firestore, 'pharmacies'); // Substitutes see all pharmacies
+    if (isSubstitute) return collection(firestore, 'pharmacies'); 
     return null;
   }, [firestore, user, isProfileLoading, isPharmacy, isSubstitute, userIsAdmin]);
   const { data: nonAdminPharmacies } = useCollection<Pharmacy>(nonAdminPharmaciesQuery);
 
   const nonAdminShiftsQuery = React.useMemo(() => {
-    // This query should NOT run for admins.
     if (isProfileLoading || !firestore || !user || userIsAdmin) return null;
     if (isPharmacy) return query(collection(firestore, 'shifts'), where('userId', '==', user.uid));
-    if (isSubstitute) return collection(firestore, 'shifts'); // Substitutes see all shifts
+    if (isSubstitute) return collection(firestore, 'shifts'); 
     return null;
   }, [firestore, user, isProfileLoading, isPharmacy, isSubstitute, userIsAdmin]);
   const { data: nonAdminShifts } = useCollection<Shift>(nonAdminShiftsQuery);
@@ -77,7 +74,6 @@ export function Dashboard() {
 
   // --- DERIVED STATE & MEMOS ---
 
-  // The main dashboard loading is only dependent on auth and the user's own profile.
   const isDashboardLoading = isAuthLoading || isProfileLoading;
 
   const allData = React.useMemo(() => {
@@ -88,11 +84,10 @@ export function Dashboard() {
         profiles: adminProfiles,
       };
     }
-    // For non-admins
     return {
       pharmacies: nonAdminPharmacies,
       shifts: nonAdminShifts,
-      profiles: null, // Non-admins don't get the full list
+      profiles: null,
     };
   }, [userIsAdmin, adminProfiles, adminShifts, nonAdminPharmacies, nonAdminShifts]);
 
@@ -106,7 +101,7 @@ export function Dashboard() {
   };
 
   const handleCancelBooking = (shiftId: string) => {
-    if (!firestore || !user) return; // Allow both substitute and admin
+    if (!firestore || !user) return; // Allow substitute and admin
     const shiftRef = doc(firestore, 'shifts', shiftId);
     updateDocumentNonBlocking(shiftRef, { status: 'available', bookedBy: null });
     toast({ title: "Booking Cancelled", description: "The shift is now available again." });
@@ -186,7 +181,8 @@ export function Dashboard() {
                   shifts={shiftsWithDateObjects}
                   selectedDate={selectedDate}
                   setSelectedDate={setSelectedDate}
-                  ownUserId={isPharmacy ? user?.uid : undefined}
+                  userRole={userProfile.role}
+                  currentUserId={user?.uid}
                 />
               </CardContent>
             </Card>
@@ -216,3 +212,5 @@ export function Dashboard() {
     </>
   );
 }
+
+    

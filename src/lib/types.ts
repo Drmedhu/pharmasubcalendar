@@ -10,15 +10,14 @@ export type Pharmacy = {
 
 export type Shift = {
   id:string;
-  pharmacyId: string;
-  date: Date | Timestamp | string; // Allow multiple types for flexibility
+  date: Date | Timestamp | string;
   startTime: string; // "HH:mm"
   endTime: string;   // "HH:mm"
   payRate: number; // per hour
   status: 'available' | 'booked';
   role: 'pharmacist' | 'assistant';
   bookedBy?: string | null; // This should be userProfileId
-  userId: string;
+  userId: string; // The ID of the user (pharmacy) who created the shift
 };
 
 export type UserProfile = {
@@ -28,3 +27,5 @@ export type UserProfile = {
     email: string;
     role: 'pharmacy' | 'substitute';
 };
+
+    

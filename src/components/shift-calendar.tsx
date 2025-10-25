@@ -2,23 +2,24 @@
 
 import * as React from 'react';
 import { Calendar } from '@/components/ui/calendar';
-import type { Shift } from '@/lib/types';
+import type { Shift, UserProfile } from '@/lib/types';
 import { Timestamp } from 'firebase/firestore';
 
 interface ShiftCalendarProps {
   shifts: Shift[];
   selectedDate: Date | undefined;
   setSelectedDate: (date: Date | undefined) => void;
-  ownUserId?: string; // Optional: To highlight only this user's shifts
+  userRole: UserProfile['role'];
+  currentUserId?: string;
 }
 
-export default function ShiftCalendar({ shifts, selectedDate, setSelectedDate, ownUserId }: ShiftCalendarProps) {
+export default function ShiftCalendar({ shifts, selectedDate, setSelectedDate, userRole, currentUserId }: ShiftCalendarProps) {
   
   const markedDays = React.useMemo(() => {
-    // If ownUserId is provided (for pharmacies), mark days that have any of their shifts.
-    // If not (for substitutes), mark days that have *available* shifts.
-    const shiftsToConsider = ownUserId
-        ? shifts.filter(shift => shift.userId === ownUserId)
+    // For pharmacies, mark days that have any of their shifts.
+    // For substitutes, mark days that have *available* shifts.
+    const shiftsToConsider = userRole === 'pharmacy'
+        ? shifts.filter(shift => shift.userId === currentUserId)
         : shifts.filter(shift => shift.status === 'available');
 
     return shiftsToConsider.map((shift) => {
@@ -28,7 +29,7 @@ export default function ShiftCalendar({ shifts, selectedDate, setSelectedDate, o
         // This handles both Date objects and string representations
         return new Date(shift.date as string | Date);
     });
-  }, [shifts, ownUserId]);
+  }, [shifts, userRole, currentUserId]);
 
   const DayContent: React.ComponentType<React.PropsWithChildren<{ date: Date }>> = (props) => {
     const isMarked = markedDays.some(
@@ -61,3 +62,5 @@ export default function ShiftCalendar({ shifts, selectedDate, setSelectedDate, o
     />
   );
 }
+
+    

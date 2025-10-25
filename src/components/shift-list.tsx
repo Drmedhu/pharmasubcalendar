@@ -10,9 +10,9 @@ interface ShiftListProps {
   shifts: Shift[];
   pharmacies: Pharmacy[];
   onBookShift: (shiftId: string) => void;
-  onCancelBooking?: (shiftId: string) => void; // Made optional for public view
+  onCancelBooking?: (shiftId: string) => void;
   currentUserId?: string;
-  userRole?: UserProfile['role']; // Made optional for public view
+  userRole?: UserProfile['role'];
   isPublicView?: boolean;
 }
 
@@ -36,7 +36,7 @@ export default function ShiftList({ shifts, pharmacies, onBookShift, onCancelBoo
     <ScrollArea className="h-[32rem]">
       <div className="flex flex-col gap-4 pr-4">
         {sortedShifts.map((shift) => {
-          const pharmacy = pharmacies.find((p) => p.id === shift.pharmacyId);
+          const pharmacy = pharmacies.find((p) => p.userId === shift.userId);
           return (
             <React.Fragment key={shift.id}>
               <ShiftCard
@@ -56,3 +56,5 @@ export default function ShiftList({ shifts, pharmacies, onBookShift, onCancelBoo
     </ScrollArea>
   );
 }
+
+    
