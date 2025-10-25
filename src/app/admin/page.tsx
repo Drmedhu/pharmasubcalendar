@@ -27,15 +27,17 @@ export default function AdminPage() {
     React.useEffect(() => {
         // Wait until loading is finished to make a decision
         if (!isLoading) {
-            // If there's no user logged in, or if the user is not an admin
-            if (!user || !isUserAdmin) {
+            // If there's no user logged in, or if the user profile has loaded and they are not an admin
+            if (!user || (userProfile && !isUserAdmin)) {
                 router.push('/');
+            } else if (!userProfile && !isLoading) { // Specifically handle case where profile doesn't exist after loading
+                 router.push('/');
             }
         }
-    }, [user, isUserAdmin, isLoading, router]);
+    }, [user, userProfile, isUserAdmin, isLoading, router]);
     
     // Show a loading screen while we verify auth and profile
-    if (isLoading || !user || !isUserAdmin) {
+    if (isLoading || !userProfile || !isUserAdmin) {
         return (
             <div className="flex min-h-screen w-full flex-col items-center justify-center">
                 <p>Verifying admin permissions...</p>
