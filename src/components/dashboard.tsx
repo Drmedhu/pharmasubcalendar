@@ -18,66 +18,65 @@ export function Dashboard() {
   const firestore = useFirestore();
   const { toast } = useToast();
   
-  const userIsAdmin = isAdmin(user);
-
-  // User Profile data
+  // 1. Fetch User Profile First
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return doc(firestore, 'userProfiles', user.uid);
   }, [firestore, user]);
   const { data: userProfile, isLoading: isLoadingUserProfile } = useDoc<UserProfile>(userProfileRef);
 
-  // --- Data Fetching based on Role ---
+  // --- DERIVED STATE ---
+  const isPharmacy = userProfile?.role === 'pharmacy';
+  const isSubstitute = userProfile?.role === 'substitute';
+
+  // 2. Conditionally Fetch Data Based on Role
   
-  // PHARMACY role: fetches only their own pharmacies
+  // PHARMACY role queries
   const pharmacyPharmaciesQuery = useMemoFirebase(() => {
-    if (!firestore || !user || !userProfile || userProfile.role !== 'pharmacy') return null;
+    if (!firestore || !user || !isPharmacy) return null;
     return query(collection(firestore, 'pharmacies'), where('userId', '==', user.uid));
-  }, [firestore, user, userProfile]);
+  }, [firestore, user, isPharmacy]);
   const { data: pharmacyPharmacies, isLoading: isLoadingPharmacyPharmacies } = useCollection<Pharmacy>(pharmacyPharmaciesQuery);
 
-  // PHARMACY role: fetches only their own shifts
   const pharmacyShiftsQuery = useMemoFirebase(() => {
-    if (!firestore || !user || !userProfile || userProfile.role !== 'pharmacy') return null;
+    if (!firestore || !user || !isPharmacy) return null;
     return query(collection(firestore, 'shifts'), where('userId', '==', user.uid));
-  }, [firestore, user, userProfile]);
+  }, [firestore, user, isPharmacy]);
   const { data: pharmacyShifts, isLoading: isLoadingPharmacyShifts } = useCollection<Shift>(pharmacyShiftsQuery);
   
-  // SUBSTITUTE role: fetches ALL pharmacies to display shift details
+  // SUBSTITUTE role queries
   const substitutePharmaciesQuery = useMemoFirebase(() => {
-    if (!firestore || !userProfile || userProfile.role !== 'substitute') return null;
+    if (!firestore || !isSubstitute) return null;
     return collection(firestore, 'pharmacies');
-  }, [firestore, userProfile]);
+  }, [firestore, isSubstitute]);
   const { data: substitutePharmacies, isLoading: isLoadingSubstitutePharmacies } = useCollection<Pharmacy>(substitutePharmaciesQuery);
   
-  // SUBSTITUTE role: fetches ALL shifts. We will filter on the client.
   const substituteShiftsQuery = useMemoFirebase(() => {
-    if (!firestore || !userProfile || userProfile.role !== 'substitute') return null;
+    if (!firestore || !isSubstitute) return null;
      return collection(firestore, 'shifts');
-  }, [firestore, userProfile]);
+  }, [firestore, isSubstitute]);
   const { data: substituteShifts, isLoading: isLoadingSubstituteShifts } = useCollection<Shift>(substituteShiftsQuery);
-
-  // This hook is no longer needed as we fetch all shifts and filter client-side
-  // const { data: myBookedShifts, isLoading: isLoadingMyBookedShifts } = useCollection<Shift>(...)
 
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date());
 
+  // Determine final loading state
+  const isLoadingData = 
+    (isPharmacy && (isLoadingPharmacyPharmacies || isLoadingPharmacyShifts)) ||
+    (isSubstitute && (isLoadingSubstitutePharmacies || isLoadingSubstituteShifts));
+
   // --- DERIVED STATE: Determine which data to use based on role ---
-  const isLoading = isLoadingUserProfile || isLoadingPharmacyPharmacies || isLoadingPharmacyShifts || isLoadingSubstitutePharmacies || isLoadingSubstituteShifts;
-  
-  const pharmacies = userProfile?.role === 'pharmacy' ? pharmacyPharmacies : substitutePharmacies;
+  const pharmacies = isPharmacy ? pharmacyPharmacies : substitutePharmacies;
   
   const allShiftsForSubstitute = React.useMemo(() => {
-    if (userProfile?.role !== 'substitute' || !substituteShifts || !user) return [];
-    // Client-side filtering: show available shifts OR shifts booked by the current user
+    if (!isSubstitute || !substituteShifts || !user) return [];
     return substituteShifts.filter(shift => shift.status === 'available' || shift.bookedBy === user.uid);
-  }, [substituteShifts, userProfile, user]);
+  }, [substituteShifts, isSubstitute, user]);
 
-  const shifts = userProfile?.role === 'pharmacy' ? pharmacyShifts : allShiftsForSubstitute;
+  const shifts = isPharmacy ? pharmacyShifts : allShiftsForSubstitute;
 
   // --- Event Handlers ---
   const handleBookShift = (shiftId: string) => {
-    if (!firestore || !user || userProfile?.role !== 'substitute') return;
+    if (!firestore || !user || !isSubstitute) return;
     const shiftRef = doc(firestore, 'shifts', shiftId);
     updateDocumentNonBlocking(shiftRef, { 
       status: 'booked',
@@ -87,7 +86,7 @@ export function Dashboard() {
   };
 
   const handleCancelBooking = (shiftId: string) => {
-    if (!firestore || !user || userProfile?.role !== 'substitute') return;
+    if (!firestore || !user || !isSubstitute) return;
     const shiftRef = doc(firestore, 'shifts', shiftId);
     updateDocumentNonBlocking(shiftRef, {
       status: 'available',
@@ -97,7 +96,7 @@ export function Dashboard() {
   };
 
   const handleCreateShift = (newShift: Omit<Shift, 'id' | 'status'>) => {
-    if (!firestore || !user || userProfile?.role !== 'pharmacy') return;
+    if (!firestore || !user || !isPharmacy) return;
     const shiftsCollection = collection(firestore, 'shifts');
     const { date, ...restOfShift } = newShift;
     const dateAsTimestamp = Timestamp.fromDate(new Date(date));
@@ -110,7 +109,7 @@ export function Dashboard() {
   };
   
   const handleCreatePharmacy = (newPharmacy: Omit<Pharmacy, 'id'>) => {
-     if (!firestore || !user || userProfile?.role !== 'pharmacy') return { ...newPharmacy, id: ''};
+     if (!firestore || !user || !isPharmacy) return { ...newPharmacy, id: ''};
     const pharmaciesCollection = collection(firestore, 'pharmacies');
     addDocumentNonBlocking(pharmaciesCollection, {
       ...newPharmacy,
@@ -119,14 +118,9 @@ export function Dashboard() {
     return { ...newPharmacy, id: `ph_${Date.now()}` };
   };
 
-  const handleDeletePharmacy = async (pharmacyId: string) => {
-    if (!firestore || userProfile?.role !== 'pharmacy') return;
-    
-    // This part requires a backend function for atomicity in a real production app.
-    // For now, we will proceed but it's not atomic.
-    
+  const handleDeletePharmacy = (pharmacyId: string) => {
+    if (!firestore || !isPharmacy) return;
     deleteDocumentNonBlocking(doc(firestore, 'pharmacies', pharmacyId));
-
     toast({
         title: 'Pharmacy Deleted',
         description: 'The pharmacy has been deleted. Associated shifts were not deleted.',
@@ -157,15 +151,13 @@ export function Dashboard() {
       shift.date.toDateString() === selectedDate.toDateString()
   );
 
-  if (isLoading || !userProfile) {
+  if (isLoadingUserProfile || !userProfile || isLoadingData) {
     return (
         <div className="flex min-h-screen w-full flex-col items-center justify-center">
             <p>Loading Dashboard...</p>
         </div>
     );
   }
-
-  const isSubstitute = userProfile.role === 'substitute';
 
   return (
     <>
