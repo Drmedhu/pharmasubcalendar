@@ -21,7 +21,6 @@ export function Dashboard() {
   
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date());
 
-  // 1. Fetch User Profile First, it will drive all other queries.
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return doc(firestore, 'userProfiles', user.uid);
@@ -29,78 +28,47 @@ export function Dashboard() {
 
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
-  // --- DERIVED STATE ---
+  const userIsAdmin = userProfile ? isAdmin(userProfile) : false;
   const isPharmacy = userProfile?.role === 'pharmacy';
   const isSubstitute = userProfile?.role === 'substitute';
-  const userIsAdmin = isAdmin(userProfile);
 
-  // --- QUERIES (conditionally enabled) ---
+  // --- Queries ---
+  // Admin queries
+  const adminProfilesQuery = useMemoFirebase(() => (firestore && userIsAdmin ? collection(firestore, 'userProfiles') : null), [firestore, userIsAdmin]);
+  const adminShiftsQuery = useMemoFirebase(() => (firestore && userIsAdmin ? collection(firestore, 'shifts') : null), [firestore, userIsAdmin]);
   
-  // PHARMACY role queries
-  const pharmacyPharmaciesQuery = useMemoFirebase(() => {
-    if (!firestore || !user || !isPharmacy) return null;
-    return query(collection(firestore, 'pharmacies'), where('userId', '==', user.uid));
-  }, [firestore, user, isPharmacy]);
+  // Pharmacy queries
+  const pharmacyPharmaciesQuery = useMemoFirebase(() => (firestore && user && isPharmacy ? query(collection(firestore, 'pharmacies'), where('userId', '==', user.uid)) : null), [firestore, user, isPharmacy]);
+  const pharmacyShiftsQuery = useMemoFirebase(() => (firestore && user && isPharmacy ? query(collection(firestore, 'shifts'), where('userId', '==', user.uid)) : null), [firestore, user, isPharmacy]);
+  
+  // Substitute queries
+  const substitutePharmaciesQuery = useMemoFirebase(() => (firestore && isSubstitute ? collection(firestore, 'pharmacies') : null), [firestore, isSubstitute]);
+  const substituteShiftsQuery = useMemoFirebase(() => (firestore && isSubstitute ? collection(firestore, 'shifts') : null), [firestore, isSubstitute]);
+
+  // --- Data Hooks ---
+  const { data: adminProfiles, isLoading: isLoadingAdminProfiles } = useCollection<UserProfile>(adminProfilesQuery);
+  const { data: adminShifts, isLoading: isLoadingAdminShifts } = useCollection<Shift>(adminShiftsQuery);
   const { data: pharmacyPharmacies, isLoading: isLoadingPharmacyPharmacies } = useCollection<Pharmacy>(pharmacyPharmaciesQuery);
-
-  const pharmacyShiftsQuery = useMemoFirebase(() => {
-    if (!firestore || !user || !isPharmacy) return null;
-    return query(collection(firestore, 'shifts'), where('userId', '==', user.uid));
-  }, [firestore, user, isPharmacy]);
   const { data: pharmacyShifts, isLoading: isLoadingPharmacyShifts } = useCollection<Shift>(pharmacyShiftsQuery);
-  
-  // SUBSTITUTE role queries
-  const substitutePharmaciesQuery = useMemoFirebase(() => {
-    if (!firestore || !isSubstitute) return null;
-    return collection(firestore, 'pharmacies');
-  }, [firestore, isSubstitute]);
   const { data: substitutePharmacies, isLoading: isLoadingSubstitutePharmacies } = useCollection<Pharmacy>(substitutePharmaciesQuery);
-  
-  const substituteShiftsQuery = useMemoFirebase(() => {
-    if (!firestore || !isSubstitute) return null;
-     return collection(firestore, 'shifts');
-  }, [firestore, isSubstitute]);
   const { data: substituteShifts, isLoading: isLoadingSubstituteShifts } = useCollection<Shift>(substituteShiftsQuery);
 
+  const isLoading = isAuthLoading || isProfileLoading || (userIsAdmin && (isLoadingAdminProfiles || isLoadingAdminShifts)) || (isPharmacy && (isLoadingPharmacyPharmacies || isLoadingPharmacyShifts)) || (isSubstitute && (isLoadingSubstitutePharmacies || isLoadingSubstituteShifts));
 
-  // Determine final loading state based on auth, profile, and role-specific data.
-  const isLoading = React.useMemo(() => {
-    if (isAuthLoading || isProfileLoading) return true;
-    if (!userProfile) return true; // Profile is essential, if it's not loaded, we are loading.
+  const pharmacies = userIsAdmin ? [] : (isPharmacy ? pharmacyPharmacies : substitutePharmacies);
+  const shifts = userIsAdmin ? [] : (isPharmacy ? pharmacyShifts : substituteShifts);
 
-    if (userIsAdmin) return false; // Admin view has its own loading state
-
-    if (isPharmacy) {
-      return isLoadingPharmacyPharmacies || isLoadingPharmacyShifts;
-    }
-    if (isSubstitute) {
-      return isLoadingSubstitutePharmacies || isLoadingSubstituteShifts;
-    }
-    return false; // Default case
-  }, [isAuthLoading, isProfileLoading, userProfile, isPharmacy, isSubstitute, userIsAdmin, isLoadingPharmacyPharmacies, isLoadingPharmacyShifts, isLoadingSubstitutePharmacies, isLoadingSubstituteShifts]);
-
-  // --- DERIVED DATA: Determine which data to use based on role ---
-  const pharmacies = isPharmacy ? pharmacyPharmacies : substitutePharmacies;
-  const shifts = isPharmacy ? pharmacyShifts : substituteShifts;
-
-  // --- Event Handlers ---
   const handleBookShift = (shiftId: string) => {
     if (!firestore || !user || !isSubstitute) return;
     const shiftRef = doc(firestore, 'shifts', shiftId);
-    updateDocumentNonBlocking(shiftRef, { 
-      status: 'booked',
-      bookedBy: user.uid
-    });
+    updateDocumentNonBlocking(shiftRef, { status: 'booked', bookedBy: user.uid });
     toast({ title: "Shift Booked!", description: "The shift has been added to your calendar."});
   };
 
   const handleCancelBooking = (shiftId: string) => {
-    if (!firestore || !user || !isSubstitute) return;
+    if (!firestore || !user) return; // Allow both substitute and admin
     const shiftRef = doc(firestore, 'shifts', shiftId);
-    updateDocumentNonBlocking(shiftRef, {
-      status: 'available',
-      bookedBy: null
-    });
+    updateDocumentNonBlocking(shiftRef, { status: 'available', bookedBy: null });
     toast({ title: "Booking Cancelled", description: "The shift is now available again." });
   };
 
@@ -109,71 +77,40 @@ export function Dashboard() {
     const shiftsCollection = collection(firestore, 'shifts');
     const { date, ...restOfShift } = newShift;
     const dateAsTimestamp = Timestamp.fromDate(new Date(date as string));
-    addDocumentNonBlocking(shiftsCollection, {
-      ...restOfShift,
-      date: dateAsTimestamp,
-      status: 'available',
-      userId: user.uid,
-    });
+    addDocumentNonBlocking(shiftsCollection, { ...restOfShift, date: dateAsTimestamp, status: 'available', userId: user.uid });
   };
   
   const handleCreatePharmacy = (newPharmacy: Omit<Pharmacy, 'id'>) => {
      if (!firestore || !user || !isPharmacy) return { ...newPharmacy, id: ''};
     const pharmaciesCollection = collection(firestore, 'pharmacies');
-    addDocumentNonBlocking(pharmaciesCollection, {
-      ...newPharmacy,
-      userId: user.uid,
-    });
+    addDocumentNonBlocking(pharmaciesCollection, { ...newPharmacy, userId: user.uid });
     return { ...newPharmacy, id: `ph_${Date.now()}` };
   };
 
   const handleDeletePharmacy = (pharmacyId: string) => {
     if (!firestore || !isPharmacy) return;
     deleteDocumentNonBlocking(doc(firestore, 'pharmacies', pharmacyId));
-    toast({
-        title: 'Pharmacy Deleted',
-        description: 'The pharmacy has been deleted. Associated shifts were not deleted.',
-        variant: 'destructive',
-    });
+    toast({ title: 'Pharmacy Deleted', description: 'The pharmacy has been deleted.', variant: 'destructive' });
   };
 
   const handleSaveProfile = (profileData: Omit<UserProfile, 'id' | 'userId'>) => {
     if (!userProfileRef) return;
     setDocumentNonBlocking(userProfileRef, { ...profileData, userId: userProfileRef.id }, { merge: true });
-    toast({
-      title: 'Profile Saved',
-      description: 'Your profile has been successfully updated.',
-    });
+    toast({ title: 'Profile Saved', description: 'Your profile has been successfully updated.' });
   };
 
   const shiftsWithDateObjects = React.useMemo(() => {
-    return shifts?.map(s => ({
-      ...s,
-      date: s.date instanceof Timestamp ? s.date.toDate() : new Date(s.date as string)
-    })) || [];
+    return shifts?.map(s => ({ ...s, date: s.date instanceof Timestamp ? s.date.toDate() : new Date(s.date as string) })) || [];
   }, [shifts]);
 
-
-  const shiftsOnSelectedDate = shiftsWithDateObjects.filter(
-    (shift) =>
-      selectedDate &&
-      shift.date.toDateString() === selectedDate.toDateString()
-  );
+  const shiftsOnSelectedDate = shiftsWithDateObjects.filter(shift => selectedDate && shift.date.toDateString() === selectedDate.toDateString());
 
   if (isLoading) {
-    return (
-        <div className="flex min-h-screen w-full flex-col items-center justify-center">
-            <p>Loading Dashboard...</p>
-        </div>
-    );
+    return <div className="flex min-h-screen w-full flex-col items-center justify-center"><p>Loading Dashboard...</p></div>;
   }
   
   if (!userProfile) {
-    return (
-      <div className="flex min-h-screen w-full flex-col items-center justify-center">
-        <p className='text-destructive'>Error: Could not load user profile. Please try logging out and back in.</p>
-      </div>
-    )
+    return <div className="flex min-h-screen w-full flex-col items-center justify-center"><p className='text-destructive'>Error: Could not load user profile. Please try logging out and back in.</p></div>;
   }
 
   return (
@@ -187,7 +124,11 @@ export function Dashboard() {
         onSaveProfile={handleSaveProfile}
       />
       {userIsAdmin ? (
-        <AdminDashboard />
+        <AdminDashboard 
+          shifts={adminShifts || []}
+          profiles={adminProfiles || []}
+          onCancelBooking={handleCancelBooking}
+        />
       ) : (
         <div className="container mx-auto grid max-w-7xl grid-cols-1 gap-8 p-4 md:grid-cols-3 lg:grid-cols-5 md:p-6 lg:p-8">
           <div className="lg:col-span-3 md:col-span-2">
@@ -195,9 +136,7 @@ export function Dashboard() {
               <CardHeader>
                 <CardTitle>Shift Calendar</CardTitle>
                 <CardDescription>
-                  {isSubstitute
-                    ? "Select a day to view available shifts. Days with available shifts are marked."
-                    : "Manage your pharmacy's shifts. Days with your shifts are marked."}
+                  {isSubstitute ? "Select a day to view available shifts." : "Manage your pharmacy's shifts."}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -213,14 +152,9 @@ export function Dashboard() {
           <div className="lg:col-span-2 md:col-span-1">
             <Card className="h-full">
               <CardHeader>
-                <CardTitle>
-                  Shifts for{' '}
-                  {selectedDate ? format(selectedDate, 'MMMM d') : '...'}
-                </CardTitle>
+                <CardTitle>Shifts for {selectedDate ? format(selectedDate, 'MMMM d') : '...'}</CardTitle>
                 <CardDescription>
-                  {isSubstitute
-                    ? "Shifts you can book or have already booked."
-                    : "All shifts scheduled at your pharmacy for the selected day."}
+                  {isSubstitute ? "Shifts you can book or have already booked." : "All shifts for the selected day."}
                 </CardDescription>
               </CardHeader>
               <CardContent>
