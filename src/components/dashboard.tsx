@@ -10,7 +10,7 @@ import { Header } from '@/components/header';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@/firebase';
 import { Timestamp } from 'firebase/firestore';
-import { isAdmin } from '@/lib/admin';
+import { ADMIN_EMAIL, isAdmin } from '@/lib/admin';
 import { AdminDashboard } from './admin/admin-dashboard';
 import { MOCK_SHIFTS, MOCK_PROFILES, MOCK_PHARMACIES } from '@/lib/mock-data';
 
@@ -24,17 +24,34 @@ export function Dashboard() {
   const [allProfiles, setAllProfiles] = React.useState<UserProfile[]>(MOCK_PROFILES);
   const [allPharmacies, setAllPharmacies] = React.useState<Pharmacy[]>(MOCK_PHARMACIES);
   
-  // 1. Find user profile from mock data.
-  const userProfile = React.useMemo(() => {
-    if (!user) return null;
-    return allProfiles.find(p => p.userId === user.uid);
-  }, [user, allProfiles]);
-
-  // 2. Determine roles and admin status from mock profile.
   const userIsAdmin = React.useMemo(() => {
-    if (!userProfile) return false;
-    return isAdmin(userProfile);
-  }, [userProfile]);
+    return user?.email === ADMIN_EMAIL;
+  }, [user]);
+
+  const userProfile: UserProfile | null = React.useMemo(() => {
+    if (!user) return null;
+    if (userIsAdmin) {
+      return allProfiles.find(p => p.email === ADMIN_EMAIL) || null;
+    }
+    // For non-admin users, since we are using mock data and can't match UID,
+    // let's just assign a mock role for demonstration.
+    // Let's cycle through the mock profiles for different users.
+    // A real app would fetch the profile based on user.uid.
+    const nonAdminProfiles = allProfiles.filter(p => p.role !== 'admin');
+    if (nonAdminProfiles.length > 0) {
+        // A simple hash to pick a profile.
+        const index = user.uid.charCodeAt(0) % nonAdminProfiles.length;
+        const profile = nonAdminProfiles[index];
+        // Let's override the mock email/id with the real user's details
+        return {
+            ...profile,
+            userId: user.uid,
+            email: user.email!,
+        };
+    }
+    return null;
+  }, [user, allProfiles, userIsAdmin]);
+
 
   const isPharmacy = userProfile?.role === 'pharmacy';
   const isSubstitute = userProfile?.role === 'substitute';
@@ -46,15 +63,17 @@ export function Dashboard() {
   const allData = React.useMemo(() => {
     if (userIsAdmin) {
       return {
-        pharmacies: [], // Admins don't manage their own pharmacies in the main view
+        pharmacies: allPharmacies,
         shifts: allShifts,
-        profiles: allProfiles,
+        profiles: allProfiles.filter(p => p.role !== 'admin'),
       };
     }
     if (isPharmacy) {
+        // In mock mode, a pharmacy user sees shifts from their assigned mock pharmacy
+        const userPharmacy = allPharmacies.find(p => p.userId === userProfile?.id);
         return {
-            pharmacies: allPharmacies.filter(p => p.userId === user?.uid),
-            shifts: allShifts.filter(s => s.userId === user?.uid),
+            pharmacies: userPharmacy ? [userPharmacy] : [],
+            shifts: allShifts.filter(s => s.userId === userPharmacy?.id),
             profiles: null,
         }
     }
@@ -70,7 +89,7 @@ export function Dashboard() {
       shifts: [],
       profiles: null,
     };
-  }, [userIsAdmin, isPharmacy, isSubstitute, user?.uid, allShifts, allProfiles, allPharmacies]);
+  }, [userIsAdmin, isPharmacy, isSubstitute, userProfile, allShifts, allProfiles, allPharmacies]);
 
   // --- Event Handlers ---
 
@@ -84,19 +103,19 @@ export function Dashboard() {
 
   const handleCancelBooking = (shiftId: string) => {
     if (!user) return; 
-    setAllShifts(prevShifts => prevShits.map(shift => 
+    setAllShifts(prevShifts => prevShifts.map(shift => 
         shift.id === shiftId ? { ...shift, status: 'available', bookedBy: null } : shift
     ));
     toast({ title: "Booking Cancelled", description: "The shift is now available again." });
   };
 
   const handleCreateShift = (newShift: Omit<Shift, 'id' | 'status'>) => {
-    if (!user || !isPharmacy) return;
+    if (!user || !isPharmacy || !allData.pharmacies || allData.pharmacies.length === 0) return;
     const shiftWithId: Shift = {
         ...newShift,
         id: `shift_${Date.now()}`,
         status: 'available',
-        userId: user.uid,
+        userId: newShift.pharmacyId, // In mock data, pharmacyId is the key
     }
     setAllShifts(prevShifts => [...prevShifts, shiftWithId]);
   };
@@ -118,14 +137,15 @@ export function Dashboard() {
     toast({ title: 'Pharmacy Deleted', description: 'The pharmacy has been deleted.', variant: 'destructive' });
   };
 
-  const handleSaveProfile = (profileData: Omit<UserProfile, 'id' | 'userId'>) => {
-    if(!user) return;
-    setAllProfiles(prev => prev.map(p => p.userId === user.uid ? { ...p, ...profileData } : p));
+  const handleSaveProfile = (profileData: Omit<UserProfile, 'id' | 'userId' | 'email'>) => {
+    if(!userProfile) return;
+    setAllProfiles(prev => prev.map(p => p.id === userProfile.id ? { ...p, ...profileData } : p));
     toast({ title: 'Profile Saved', description: 'Your profile has been successfully updated.' });
   };
 
   const shiftsWithDateObjects = React.useMemo(() => {
-    return allData.shifts?.map(s => ({ ...s, date: s.date instanceof Timestamp ? s.date.toDate() : new Date(s.date as string) })) || [];
+    const shiftsToDisplay = allData.shifts || [];
+    return shiftsToDisplay.map(s => ({ ...s, date: s.date instanceof Timestamp ? s.date.toDate() : new Date(s.date as string) }));
   }, [allData.shifts]);
 
   const shiftsOnSelectedDate = shiftsWithDateObjects.filter(shift => selectedDate && shift.date.toDateString() === selectedDate.toDateString());
@@ -152,7 +172,7 @@ export function Dashboard() {
       />
       {userIsAdmin ? (
         <AdminDashboard 
-          shifts={allData.shifts || []}
+          shifts={shiftsWithDateObjects || []}
           profiles={allData.profiles || []}
           onCancelBooking={handleCancelBooking}
         />
@@ -188,7 +208,7 @@ export function Dashboard() {
               <CardContent>
                 <ShiftList
                   shifts={shiftsOnSelectedDate}
-                  pharmacies={allData.pharmacies || []}
+                  pharmacies={allData.pharmacies || allPharmacies}
                   onBookShift={handleBookShift}
                   onCancelBooking={handleCancelBooking}
                   currentUserId={user?.uid}

@@ -5,11 +5,12 @@ export type Pharmacy = {
   name: string;
   address: string;
   email: string;
-  userId: string;
+  userId: string; // The user ID of the pharmacy owner
 };
 
 export type Shift = {
   id:string;
+  pharmacyId: string; // The ID of the pharmacy, not the user
   date: Date | Timestamp | string;
   startTime: string; // "HH:mm"
   endTime: string;   // "HH:mm"
@@ -27,5 +28,3 @@ export type UserProfile = {
     email: string;
     role: 'pharmacy' | 'substitute' | 'admin';
 };
-
-    

@@ -18,7 +18,7 @@ export default function ShiftManagementTab({ shifts, profiles, onCancelBooking }
     
     const getBookedByName = (userId: string | undefined | null) => {
         if (!userId) return 'N/A';
-        const profile = profiles.find(p => p.userId === userId);
+        const profile = profiles.find(p => p.id === userId);
         return profile ? profile.name : 'Unknown User';
     };
     
