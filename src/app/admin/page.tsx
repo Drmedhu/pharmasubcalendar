@@ -1,30 +1,49 @@
 "use client";
 
 import * as React from 'react';
-import { useUser } from '@/firebase';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { isAdmin } from '@/lib/admin';
 import { AdminDashboard } from '@/components/admin/admin-dashboard';
 import { useRouter } from 'next/navigation';
 import { PublicHeader } from '@/components/public-header';
+import type { UserProfile } from '@/lib/types';
+import { doc } from 'firebase/firestore';
 
 export default function AdminPage() {
-    const { user, isUserLoading } = useUser();
+    const { user, isUserLoading: isAuthLoading } = useUser();
+    const firestore = useFirestore();
     const router = useRouter();
 
-    React.useEffect(() => {
-        if (!isUserLoading && !isAdmin(user)) {
-            router.push('/');
-        }
-    }, [user, isUserLoading, router]);
+    const userProfileRef = useMemoFirebase(() => {
+        if (!firestore || !user) return null;
+        return doc(firestore, 'userProfiles', user.uid);
+    }, [firestore, user]);
 
-    if (isUserLoading || !user || !isAdmin(user)) {
+    const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
+
+    const isUserAdmin = React.useMemo(() => isAdmin(userProfile), [userProfile]);
+    const isLoading = isAuthLoading || isProfileLoading;
+
+    React.useEffect(() => {
+        // Wait until loading is finished to make a decision
+        if (!isLoading) {
+            // If there's no user logged in, or if the user is not an admin
+            if (!user || !isUserAdmin) {
+                router.push('/');
+            }
+        }
+    }, [user, isUserAdmin, isLoading, router]);
+    
+    // Show a loading screen while we verify auth and profile
+    if (isLoading || !user || !isUserAdmin) {
         return (
             <div className="flex min-h-screen w-full flex-col items-center justify-center">
-                <p>Loading or redirecting...</p>
+                <p>Verifying admin permissions...</p>
             </div>
         );
     }
     
+    // If all checks pass, render the admin dashboard
     return (
         <div className="flex min-h-screen w-full flex-col">
             <PublicHeader />
