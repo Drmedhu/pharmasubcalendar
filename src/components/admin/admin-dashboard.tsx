@@ -1,48 +1,21 @@
 "use client";
 
 import * as React from 'react';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { Shift, UserProfile } from '@/lib/types';
-import { collection } from 'firebase/firestore';
-import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import UserManagementTab from './user-management-tab';
 import ShiftManagementTab from './shift-management-tab';
-import { doc } from 'firebase/firestore';
 
-export function AdminDashboard() {
-  const firestore = useFirestore();
-  const { toast } = useToast();
+interface AdminDashboardProps {
+    profiles: UserProfile[];
+    shifts: Shift[];
+    onCancelBooking: (shiftId: string) => void;
+}
 
-  const profilesQuery = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'userProfiles') : null),
-    [firestore]
-  );
-  const { data: profiles, isLoading: isLoadingProfiles } = useCollection<UserProfile>(profilesQuery);
-
-  const shiftsQuery = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'shifts') : null),
-    [firestore]
-  );
-  const { data: shifts, isLoading: isLoadingShifts } = useCollection<Shift>(shiftsQuery);
-
-  const handleCancelBooking = (shiftId: string) => {
-    if (!firestore) return;
-    const shiftRef = doc(firestore, 'shifts', shiftId);
-    updateDocumentNonBlocking(shiftRef, {
-      status: 'available',
-      bookedBy: null,
-    });
-    toast({
-      title: 'Booking Cancelled',
-      description: "The shift is now available again.",
-    });
-  };
-
-  const isLoading = isLoadingProfiles || isLoadingShifts;
-
-  if (isLoading) {
+export function AdminDashboard({ profiles, shifts, onCancelBooking }: AdminDashboardProps) {
+  
+  if (!profiles || !shifts) {
     return (
         <div className="flex min-h-screen w-full flex-col items-center justify-center">
             <p>Loading admin data...</p>
@@ -62,7 +35,7 @@ export function AdminDashboard() {
             <ShiftManagementTab 
                 shifts={shifts || []}
                 profiles={profiles || []}
-                onCancelBooking={handleCancelBooking}
+                onCancelBooking={onCancelBooking}
             />
         </TabsContent>
         <TabsContent value="users">

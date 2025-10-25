@@ -21,7 +21,7 @@ export default function HomePage() {
   if (isUserLoading) {
     return (
       <div className="flex min-h-screen w-full flex-col items-center justify-center">
-        <p>Loading...</p>
+        <p>Loading user session...</p>
       </div>
     );
   }

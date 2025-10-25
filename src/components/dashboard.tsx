@@ -28,35 +28,38 @@ export function Dashboard() {
 
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
-  const userIsAdmin = userProfile ? isAdmin(userProfile) : false;
+  const userIsAdmin = React.useMemo(() => userProfile ? isAdmin(userProfile) : false, [userProfile]);
   const isPharmacy = userProfile?.role === 'pharmacy';
   const isSubstitute = userProfile?.role === 'substitute';
 
-  // --- Queries ---
-  // Admin queries
-  const adminProfilesQuery = useMemoFirebase(() => (firestore && userIsAdmin ? collection(firestore, 'userProfiles') : null), [firestore, userIsAdmin]);
-  const adminShiftsQuery = useMemoFirebase(() => (firestore && userIsAdmin ? collection(firestore, 'shifts') : null), [firestore, userIsAdmin]);
+  // --- Data Hooks for different roles ---
+
+  // Pharmacies
+  const pharmaciesQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    if (isPharmacy) return query(collection(firestore, 'pharmacies'), where('userId', '==', user.uid));
+    if (isSubstitute || userIsAdmin) return collection(firestore, 'pharmacies');
+    return null;
+  }, [firestore, user, isPharmacy, isSubstitute, userIsAdmin]);
+  const { data: pharmacies, isLoading: isLoadingPharmacies } = useCollection<Pharmacy>(pharmaciesQuery);
+
+  // Shifts
+  const shiftsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    if (isPharmacy) return query(collection(firestore, 'shifts'), where('userId', '==', user.uid));
+    if (isSubstitute || userIsAdmin) return collection(firestore, 'shifts');
+    return null;
+  }, [firestore, user, isPharmacy, isSubstitute, userIsAdmin]);
+  const { data: shifts, isLoading: isLoadingShifts } = useCollection<Shift>(shiftsQuery);
+
+  // Profiles (for admin)
+  const profilesQuery = useMemoFirebase(() => (firestore && userIsAdmin ? collection(firestore, 'userProfiles') : null), [firestore, userIsAdmin]);
+  const { data: profiles, isLoading: isLoadingProfiles } = useCollection<UserProfile>(profilesQuery);
+
+
+  const isLoading = isAuthLoading || isProfileLoading || isLoadingPharmacies || isLoadingShifts || (userIsAdmin && isLoadingProfiles);
   
-  // Pharmacy queries
-  const pharmacyPharmaciesQuery = useMemoFirebase(() => (firestore && user && isPharmacy ? query(collection(firestore, 'pharmacies'), where('userId', '==', user.uid)) : null), [firestore, user, isPharmacy]);
-  const pharmacyShiftsQuery = useMemoFirebase(() => (firestore && user && isPharmacy ? query(collection(firestore, 'shifts'), where('userId', '==', user.uid)) : null), [firestore, user, isPharmacy]);
-  
-  // Substitute queries
-  const substitutePharmaciesQuery = useMemoFirebase(() => (firestore && isSubstitute ? collection(firestore, 'pharmacies') : null), [firestore, isSubstitute]);
-  const substituteShiftsQuery = useMemoFirebase(() => (firestore && isSubstitute ? collection(firestore, 'shifts') : null), [firestore, isSubstitute]);
-
-  // --- Data Hooks ---
-  const { data: adminProfiles, isLoading: isLoadingAdminProfiles } = useCollection<UserProfile>(adminProfilesQuery);
-  const { data: adminShifts, isLoading: isLoadingAdminShifts } = useCollection<Shift>(adminShiftsQuery);
-  const { data: pharmacyPharmacies, isLoading: isLoadingPharmacyPharmacies } = useCollection<Pharmacy>(pharmacyPharmaciesQuery);
-  const { data: pharmacyShifts, isLoading: isLoadingPharmacyShifts } = useCollection<Shift>(pharmacyShiftsQuery);
-  const { data: substitutePharmacies, isLoading: isLoadingSubstitutePharmacies } = useCollection<Pharmacy>(substitutePharmaciesQuery);
-  const { data: substituteShifts, isLoading: isLoadingSubstituteShifts } = useCollection<Shift>(substituteShiftsQuery);
-
-  const isLoading = isAuthLoading || isProfileLoading || (userIsAdmin && (isLoadingAdminProfiles || isLoadingAdminShifts)) || (isPharmacy && (isLoadingPharmacyPharmacies || isLoadingPharmacyShifts)) || (isSubstitute && (isLoadingSubstitutePharmacies || isLoadingSubstituteShifts));
-
-  const pharmacies = userIsAdmin ? [] : (isPharmacy ? pharmacyPharmacies : substitutePharmacies);
-  const shifts = userIsAdmin ? [] : (isPharmacy ? pharmacyShifts : substituteShifts);
+  // --- Event Handlers ---
 
   const handleBookShift = (shiftId: string) => {
     if (!firestore || !user || !isSubstitute) return;
@@ -105,6 +108,8 @@ export function Dashboard() {
 
   const shiftsOnSelectedDate = shiftsWithDateObjects.filter(shift => selectedDate && shift.date.toDateString() === selectedDate.toDateString());
 
+  // --- Render Logic ---
+
   if (isLoading) {
     return <div className="flex min-h-screen w-full flex-col items-center justify-center"><p>Loading Dashboard...</p></div>;
   }
@@ -125,8 +130,8 @@ export function Dashboard() {
       />
       {userIsAdmin ? (
         <AdminDashboard 
-          shifts={adminShifts || []}
-          profiles={adminProfiles || []}
+          shifts={shifts || []}
+          profiles={profiles || []}
           onCancelBooking={handleCancelBooking}
         />
       ) : (
