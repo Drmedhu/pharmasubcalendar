@@ -22,18 +22,16 @@ export default function AdminPage() {
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
     const isLoading = isAuthLoading || isProfileLoading;
+    const isUserAdmin = !isLoading && !!userProfile && isAdmin(userProfile);
 
     React.useEffect(() => {
-        // Only run redirection logic after all loading is complete.
-        if (!isLoading) {
-            // After loading, if there is no user, no profile, or the user is not an admin, redirect.
-            if (!user || !userProfile || !isAdmin(userProfile)) {
-                router.push('/');
-            }
+        // We only want to redirect if loading is complete and the user is definitively not an admin.
+        if (!isLoading && !isUserAdmin) {
+            router.push('/');
         }
-    }, [isLoading, user, userProfile, router]);
-    
-    // While loading, or if the user data is not yet available, show a loading screen.
+    }, [isLoading, isUserAdmin, router]);
+
+    // 1. While loading, show a loading indicator.
     if (isLoading) {
         return (
             <div className="flex min-h-screen w-full flex-col items-center justify-center">
@@ -42,23 +40,23 @@ export default function AdminPage() {
         );
     }
     
-    // After loading, if they are not an admin (and not loading), they will be redirected. 
-    // We can show a message until the redirect happens.
-    if (!isAdmin(userProfile)) {
-         return (
-            <div className="flex min-h-screen w-full flex-col items-center justify-center">
-                <p>Access denied. Redirecting...</p>
+    // 2. After loading, if they are an admin, show the dashboard.
+    if (isUserAdmin) {
+        return (
+            <div className="flex min-h-screen w-full flex-col">
+                <PublicHeader />
+                <main className="flex-1">
+                    <AdminDashboard />
+                </main>
             </div>
         );
     }
-    
-    // If all checks pass, render the admin dashboard.
+
+    // 3. After loading, if they are NOT an admin, they will be redirected by the useEffect.
+    // Show a message until the redirect happens.
     return (
-        <div className="flex min-h-screen w-full flex-col">
-            <PublicHeader />
-            <main className="flex-1">
-                <AdminDashboard />
-            </main>
+        <div className="flex min-h-screen w-full flex-col items-center justify-center">
+            <p>Access denied. Redirecting...</p>
         </div>
     );
 }
