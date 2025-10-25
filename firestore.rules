@@ -1,102 +1,101 @@
 /**
- * @fileoverview Firestore Security Rules for the pharmacy app.
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model. Each user can only access their own data.
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a strict user-ownership model for user profiles, shifts, and availability records.
+ * All data is nested under /users/{userId} to simplify authorization.
  *
  * Data Structure:
- * - User profiles are stored under `/users/{userId}/profile`. Only the user can access their profile.
- * - Shifts posted by pharmacies are stored under `/users/{pharmacyId}/shifts/{shiftId}`. Only the pharmacy can manage their shifts.
- * - Substitute availabilities are stored under `/users/{substituteId}/availability/{availabilityId}`. Only the substitute can manage their availability.
+ * - /users/{userId}/profile: User profile information, accessible only by the authenticated user.
+ * - /users/{pharmacyId}/shifts/{shiftId}: Shifts posted by a pharmacy, accessible only by the pharmacy.
+ * - /users/{substituteId}/availability/{availabilityId}: Availability records for a substitute pharmacist, accessible only by the substitute.
  *
  * Key Security Decisions:
- * - User profiles are private and accessible only to the authenticated user.
- * - Pharmacies can only manage shifts they have posted.
- * - Substitutes can only manage their own availability.
- * - Listing of all user profiles is disallowed.
+ * - User profiles are private and only accessible to the authenticated user.
+ * - Shifts are owned by the pharmacy that posted them and are only accessible to that pharmacy.
+ * - Substitute availability records are owned by the substitute and are only accessible to that substitute.
+ * - No user listing is allowed at the top level.
  *
  * Denormalization for Authorization:
- *  - The `userId` is encoded in the document path (e.g., `/users/{userId}/profile`), eliminating the need to store it within the document itself and reducing complexity for authorization checks.
+ * - User profiles, shifts, and availability records are stored under the /users/{userId} collection to simplify authorization and avoid costly `get()` calls.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Grants access to user profiles based on ownership. Only the authenticated user can read/write their profile.
+     * @description Checks if the request is made by a signed-in user.
+     * @return {bool} True if the user is signed in, false otherwise.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the authenticated user is the owner of the resource based on the userId.
+     * @param {string} userId - The user ID to compare against the authenticated user's ID.
+     * @return {bool} True if the user is the owner, false otherwise.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the authenticated user is the owner of the resource and the resource exists.
+     * @param {string} userId - The user ID to compare against the authenticated user's ID.
+     * @return {bool} True if the user is the owner and the resource exists, false otherwise.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Security rules for user profiles stored under /users/{userId}/profile.
      * @path /users/{userId}/profile
-     * @allow (get, create, update, delete) if the authenticated user's UID matches the userId in the path.
-     * @deny (get, create, update, delete) if the authenticated user's UID does not match the userId in the path.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) - Authenticated user can create their own profile if userId matches auth.uid and sets the id to their userId.
+     * @allow (get, update, delete) - Authenticated user can get, update, or delete their own profile.
+     * @deny (create) - User cannot create a profile for another user.
+     * @deny (get, update, delete) - User cannot get, update, or delete another user's profile.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
      */
     match /users/{userId}/profile {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      allow get: if isSignedIn() && isOwner(userId);
+      allow get: if isOwner(userId);
       allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Grants access to shifts based on ownership. Only the pharmacy that posted the shift can manage it.
+     * @description Security rules for shifts posted by a pharmacy under /users/{pharmacyId}/shifts/{shiftId}.
      * @path /users/{pharmacyId}/shifts/{shiftId}
-     * @allow (get, create, update, delete) if the authenticated user's UID matches the pharmacyId in the path.
-     * @deny (get, create, update, delete) if the authenticated user's UID does not match the pharmacyId in the path.
-     * @principle Enforces document ownership for writes.
+     * @allow (create) - Pharmacy can create a shift if pharmacyId matches auth.uid.
+     * @allow (get, update, delete) - Pharmacy can get, update, or delete their own shifts.
+     * @deny (create) - User cannot create a shift for another pharmacy.
+     * @deny (get, update, delete) - User cannot get, update, or delete another pharmacy's shifts.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
      */
     match /users/{pharmacyId}/shifts/{shiftId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(pharmacyId) {
-        return request.auth.uid == pharmacyId;
-      }
-
-      function isExistingOwner(pharmacyId) {
-        return isOwner(pharmacyId) && exists(resource);
-      }
-
-      allow get: if isSignedIn() && isOwner(pharmacyId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(pharmacyId);
-      allow update: if isSignedIn() && isExistingOwner(pharmacyId);
-      allow delete: if isSignedIn() && isExistingOwner(pharmacyId);
+      allow get: if isOwner(pharmacyId);
+      allow list: if isOwner(pharmacyId);
+      allow create: if isOwner(pharmacyId) && request.resource.data.pharmacyId == pharmacyId;
+      allow update: if isExistingOwner(pharmacyId) && request.resource.data.pharmacyId == resource.data.pharmacyId;
+      allow delete: if isExistingOwner(pharmacyId);
     }
 
     /**
-     * @description Grants access to substitute availabilities based on ownership. Only the substitute can manage their availability.
+     * @description Security rules for substitute availability records under /users/{substituteId}/availability/{availabilityId}.
      * @path /users/{substituteId}/availability/{availabilityId}
-     * @allow (get, create, update, delete) if the authenticated user's UID matches the substituteId in the path.
-     * @deny (get, create, update, delete) if the authenticated user's UID does not match the substituteId in the path.
-     * @principle Enforces document ownership for writes.
+     * @allow (create) - Substitute can create their own availability records if substituteId matches auth.uid.
+     * @allow (get, update, delete) - Substitute can get, update, or delete their own availability records.
+     * @deny (create) - User cannot create an availability record for another substitute.
+     * @deny (get, update, delete) - User cannot get, update, or delete another substitute's availability records.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
      */
     match /users/{substituteId}/availability/{availabilityId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(substituteId) {
-        return request.auth.uid == substituteId;
-      }
-
-      function isExistingOwner(substituteId) {
-        return isOwner(substituteId) && exists(resource);
-      }
-
-      allow get: if isSignedIn() && isOwner(substituteId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(substituteId);
-      allow update: if isSignedIn() && isExistingOwner(substituteId);
-      allow delete: if isSignedIn() && isExistingOwner(substituteId);
+      allow get: if isOwner(substituteId);
+      allow list: if isOwner(substituteId);
+      allow create: if isOwner(substituteId) && request.resource.data.substituteId == substituteId;
+      allow update: if isExistingOwner(substituteId) && request.resource.data.substituteId == resource.data.substituteId;
+      allow delete: if isExistingOwner(substituteId);
     }
   }
 }
