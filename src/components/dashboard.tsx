@@ -50,43 +50,28 @@ export function Dashboard() {
   }, [firestore, userProfile]);
   const { data: substitutePharmacies, isLoading: isLoadingSubstitutePharmacies } = useCollection<Pharmacy>(substitutePharmaciesQuery);
   
-  // SUBSTITUTE role: fetches ALL available shifts
+  // SUBSTITUTE role: fetches ALL shifts. We will filter on the client.
   const substituteShiftsQuery = useMemoFirebase(() => {
     if (!firestore || userProfile?.role !== 'substitute') return null;
-     return query(collection(firestore, 'shifts'), 
-       where('status', '==', 'available')
-     );
+     return collection(firestore, 'shifts');
   }, [firestore, userProfile]);
   const { data: substituteShifts, isLoading: isLoadingSubstituteShifts } = useCollection<Shift>(substituteShiftsQuery);
 
-  // SUBSTITUTE role: fetches their own booked shifts
-  const { data: myBookedShifts, isLoading: isLoadingMyBookedShifts } = useCollection<Shift>(
-    useMemoFirebase(() => {
-      if (!firestore || !user || userProfile?.role !== 'substitute') return null;
-      return query(collection(firestore, 'shifts'), where('bookedBy', '==', user.uid));
-    }, [firestore, user, userProfile])
-  );
+  // This hook is no longer needed as we fetch all shifts and filter client-side
+  // const { data: myBookedShifts, isLoading: isLoadingMyBookedShifts } = useCollection<Shift>(...)
 
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date());
 
   // --- DERIVED STATE: Determine which data to use based on role ---
-  const isLoading = isLoadingUserProfile || isLoadingPharmacyPharmacies || isLoadingPharmacyShifts || isLoadingSubstitutePharmacies || isLoadingSubstituteShifts || isLoadingMyBookedShifts;
+  const isLoading = isLoadingUserProfile || isLoadingPharmacyPharmacies || isLoadingPharmacyShifts || isLoadingSubstitutePharmacies || isLoadingSubstituteShifts;
   
   const pharmacies = userProfile?.role === 'pharmacy' ? pharmacyPharmacies : substitutePharmacies;
   
   const allShiftsForSubstitute = React.useMemo(() => {
-    if (userProfile?.role !== 'substitute') return [];
-    const combined = [...(substituteShifts || [])];
-    const bookedIds = new Set(combined.map(s => s.id));
-    if (myBookedShifts) {
-      myBookedShifts.forEach(s => {
-        if (!bookedIds.has(s.id)) {
-          combined.push(s);
-        }
-      });
-    }
-    return combined;
-  }, [substituteShifts, myBookedShifts, userProfile]);
+    if (userProfile?.role !== 'substitute' || !substituteShifts || !user) return [];
+    // Client-side filtering: show available shifts OR shifts booked by the current user
+    return substituteShifts.filter(shift => shift.status === 'available' || shift.bookedBy === user.uid);
+  }, [substituteShifts, userProfile, user]);
 
   const shifts = userProfile?.role === 'pharmacy' ? pharmacyShifts : allShiftsForSubstitute;
 
@@ -139,12 +124,6 @@ export function Dashboard() {
     
     // This part requires a backend function for atomicity in a real production app.
     // For now, we will proceed but it's not atomic.
-    // We need to query for shifts to delete them, but this should be done in a secure backend environment.
-    // const shiftDocsToDeleteQuery = query(collection(firestore, 'shifts'), where('pharmacyId', '==', pharmacyId));
-    // const shiftDocsToDelete = await getDocs(shiftDocsToDeleteQuery);
-    // shiftDocsToDelete.docs.forEach(shiftDoc => {
-    //   deleteDocumentNonBlocking(shiftDoc.ref);
-    // });
     
     deleteDocumentNonBlocking(doc(firestore, 'pharmacies', pharmacyId));
 
