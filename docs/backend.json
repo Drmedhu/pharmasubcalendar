@@ -1,34 +1,75 @@
 {
   "entities": {
+    "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserProfile",
+      "type": "object",
+      "description": "Represents a user profile in the PharmaSub Calendar application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserProfile entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "User's email address.",
+          "format": "email"
+        },
+        "name": {
+          "type": "string",
+          "description": "User's full name."
+        },
+        "isPharmacist": {
+          "type": "boolean",
+          "description": "Indicates whether the user is a pharmacist (true) or a pharmacy (false)."
+        },
+        "pharmacyId": {
+          "type": "string",
+          "description": "Reference to Pharmacy if the user represents a pharmacy. (Relationship: Pharmacy 1:N UserProfile)"
+        },
+        "availability": {
+          "type": "string",
+          "description": "The User's availability, stored as a string."
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "name",
+        "isPharmacist"
+      ]
+    },
     "Pharmacy": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Pharmacy",
       "type": "object",
-      "description": "Represents a pharmacy that posts shifts.",
+      "description": "Represents a pharmacy in the PharmaSub Calendar application.",
       "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Pharmacy entity."
+        },
         "name": {
           "type": "string",
-          "description": "Name of the pharmacy."
+          "description": "Pharmacy name."
         },
         "address": {
           "type": "string",
-          "description": "Address of the pharmacy."
+          "description": "Pharmacy address."
         },
-        "email": {
+        "contactPerson": {
           "type": "string",
-          "description": "Notification email for the pharmacy.",
-          "format": "email"
+          "description": "Contact person at the pharmacy."
         },
-        "userId": {
+        "contactPhone": {
           "type": "string",
-          "description": "The ID of the user who created the pharmacy."
+          "description": "Pharmacy contact phone number."
         }
       },
       "required": [
+        "id",
         "name",
-        "address",
-        "email",
-        "userId"
+        "address"
       ]
     },
     "Shift": {
@@ -37,105 +78,107 @@
       "type": "object",
       "description": "Represents a shift posted by a pharmacy.",
       "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Shift entity."
+        },
         "pharmacyId": {
           "type": "string",
-          "description": "Reference to Pharmacy. (Relationship: Pharmacy 1:N Shift)"
-        },
-        "date": {
-          "type": "string",
-          "description": "Date of the shift.",
-          "format": "date-time"
+          "description": "Reference to the Pharmacy posting the shift. (Relationship: Pharmacy 1:N Shift)"
         },
         "startTime": {
           "type": "string",
-          "description": "Start time of the shift."
+          "description": "Shift start time.",
+          "format": "date-time"
         },
         "endTime": {
           "type": "string",
-          "description": "End time of the shift."
+          "description": "Shift end time.",
+          "format": "date-time"
         },
         "payRate": {
           "type": "number",
           "description": "Pay rate for the shift."
         },
-        "status": {
-          "type": "string",
-          "enum": ["available", "booked"]
+        "isBooked": {
+          "type": "boolean",
+          "description": "Indicates whether the shift has been booked."
         },
-        "role": {
+        "substituteId": {
           "type": "string",
-          "enum": ["pharmacist", "assistant"]
-        },
-        "bookedBy": {
-          "type": "string",
-          "description": "Reference to the UserProfile who booked the shift. Nullable if the shift isn't booked."
-        },
-        "userId": {
-          "type": "string",
-          "description": "The ID of the user who created the shift."
+          "description": "Reference to UserProfile of the substitute pharmacist who booked the shift. (Relationship: UserProfile 1:N Shift)"
         }
       },
       "required": [
+        "id",
         "pharmacyId",
-        "date",
         "startTime",
         "endTime",
-        "payRate",
-        "status",
-        "userId",
-        "role"
+        "payRate"
       ]
-    },
-    "UserProfile": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "title": "User Profile",
-        "type": "object",
-        "description": "Represents a substitute pharmacist or assistant.",
-        "properties": {
-            "userId": {
-                "type": "string",
-                "description": "The ID of the authenticated user."
-            },
-            "name": {
-                "type": "string",
-                "description": "Name of the user."
-            },
-            "email": {
-                "type": "string",
-                "description": "Email of the user.",
-                "format": "email"
-            },
-            "role": {
-                "type": "string",
-                "enum": ["pharmacist", "substitute"]
-            }
-        },
-        "required": ["userId", "name", "email", "role"]
     }
   },
   "auth": {
     "providers": [
-      "email"
+      "password",
+      "anonymous"
     ]
   },
   "firestore": {
-    "/pharmacies/{pharmacyId}": {
-        "schema": {
-            "$ref": "#/entities/Pharmacy"
-        },
-        "description": "Stores pharmacy information. Each document represents a pharmacy. The 'pharmacyId' is used as the document ID."
-    },
-    "/shifts/{shiftId}": {
-        "schema": {
-            "$ref": "#/entities/Shift"
-        },
-        "description": "Stores shift information."
-    },
-    "/userProfiles/{userId}": {
-        "schema": {
-            "$ref": "#/entities/UserProfile"
-        },
-        "description": "Stores user profile information. The document ID is the user's auth UID."
-    }
+    "structure": [
+      {
+        "path": "/userProfiles/{userId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Stores user profile information. Only the user with the matching UID can access their profile.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The Firebase Auth UID of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/pharmacies/{pharmacyId}",
+        "definition": {
+          "entityName": "Pharmacy",
+          "schema": {
+            "$ref": "#/backend/entities/Pharmacy"
+          },
+          "description": "Stores pharmacy information.",
+          "params": [
+            {
+              "name": "pharmacyId",
+              "description": "Unique identifier for the pharmacy."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/pharmacies/{pharmacyId}/shifts/{shiftId}",
+        "definition": {
+          "entityName": "Shift",
+          "schema": {
+            "$ref": "#/backend/entities/Shift"
+          },
+          "description": "Stores shift information for a specific pharmacy. Includes denormalized 'pharmacyId' for authorization independence.",
+          "params": [
+            {
+              "name": "pharmacyId",
+              "description": "Unique identifier for the pharmacy."
+            },
+            {
+              "name": "shiftId",
+              "description": "Unique identifier for the shift."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to address the 'Missing or insufficient permissions' error by ensuring clear ownership and access control for user profiles. The core principle is Authorization Independence, achieved through path-based ownership for user profiles and pharmacies, and membership maps for collaborative data like shifts. This eliminates the need for `get()` calls in security rules, enabling atomic operations and easier debugging.\n\nSpecifically:\n\n1.  **User Profiles:** Each user profile is stored under `/userProfiles/{userId}`, where `userId` matches the Firebase Auth UID. This ensures that only the authenticated user can access their profile. The error log indicates that the user with UID '6g1XplP1ONTtZZxFEJkHEQWIUMf1' was denied access to `/userProfiles/6g1XplP1ONTtZZxFEJkHEQWIUMf1`. The security rules must allow 'get' access to this path for the authenticated user.\n\n2.  **Pharmacies:** Pharmacies are stored under `/pharmacies/{pharmacyId}`. While the user request does not indicate any permission issues with the `pharmacies` collection, it's included here for completeness.\n\n3.  **Shifts:** Shifts are stored under `/pharmacies/{pharmacyId}/shifts/{shiftId}`. This enforces that only the pharmacy that owns the shift can create, update, or delete it. Furthermore, we include the `pharmacyId` in the Shift document itself as denormalized data to ensure authorization independence. When a substitute books a shift, the `substituteId` field is updated. Security rules for shifts must allow pharmacies to manage their shifts and substitutes to book available shifts (after checking `isBooked` state).\n\nThis structure supports the required QAPs:\n\n*   **Secure List Operations:** The path-based ownership for user profiles and pharmacies ensures that listing profiles requires either admin privileges or is limited to fetching the current user's profile. Similarly, listing shifts under a pharmacy only returns shifts owned by that pharmacy.\n*   **Authorization Independence:** Denormalizing the `pharmacyId` within the `Shift` document enables creating and updating shifts without needing to read the parent pharmacy document. This allows atomic operations and simplifies security rules."
   }
 }

@@ -1,6 +1,3 @@
-// This file contains the Firebase configuration.
-// IMPORTANT: Replace the placeholder values with your actual Firebase project configuration.
-
 export const firebaseConfig = {
   "projectId": "studio-3758582175-2db24",
   "appId": "1:243422162135:web:f7f3dc4470f4479d601492",
