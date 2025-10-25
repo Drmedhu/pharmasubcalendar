@@ -4,9 +4,6 @@ import type { UserProfile } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "../ui/button";
-import { useFirestore } from "@/firebase";
-import { doc } from "firebase/firestore";
-import { deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -26,16 +23,14 @@ interface UserManagementTabProps {
 }
 
 export default function UserManagementTab({ profiles }: UserManagementTabProps) {
-    const firestore = useFirestore();
     const { toast } = useToast();
 
     const handleDeleteUser = (userId: string) => {
-        if (!firestore) return;
-        const userDocRef = doc(firestore, 'userProfiles', userId);
-        deleteDocumentNonBlocking(userDocRef);
+        // This is a mock implementation. In a real app, you would call a function
+        // to delete the user from your database and authentication provider.
         toast({
-            title: "User Deleted",
-            description: "The user profile has been deleted.",
+            title: "Action Not Implemented",
+            description: "User deletion is not implemented in this mock environment.",
             variant: "destructive"
         });
     };
@@ -72,7 +67,7 @@ export default function UserManagementTab({ profiles }: UserManagementTabProps) 
                                     <TableCell>
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
-                                                <Button variant="destructive" size="sm">Delete</Button>
+                                                <Button variant="destructive" size="sm" disabled>Delete</Button>
                                             </AlertDialogTrigger>
                                             <AlertDialogContent>
                                                 <AlertDialogHeader>

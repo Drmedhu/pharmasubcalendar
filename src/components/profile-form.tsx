@@ -16,11 +16,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import type { UserProfile } from '@/lib/types';
+import { ADMIN_EMAIL } from '@/lib/admin';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Please enter a valid email address.' }),
-  role: z.enum(['pharmacy', 'substitute'], {
+  role: z.enum(['pharmacy', 'substitute', 'admin'], {
     required_error: "You need to select a role.",
   }),
 });
@@ -42,6 +43,8 @@ export default function ProfileForm({ userProfile, onSave, onFormSubmit }: Profi
       role: userProfile?.role || 'substitute',
     },
   });
+
+  const isAdminUser = userProfile?.email === ADMIN_EMAIL;
 
   function onSubmit(values: ProfileFormValues) {
     onSave(values);
@@ -88,8 +91,16 @@ export default function ProfileForm({ userProfile, onSave, onFormSubmit }: Profi
                   onValueChange={field.onChange}
                   defaultValue={field.value}
                   className="flex space-x-4"
-                  disabled={!!userProfile} // Can't change role after registration
+                  disabled={!!userProfile && !isAdminUser} // Can't change role after registration, unless admin
                 >
+                  {isAdminUser && (
+                    <FormItem className="flex items-center space-x-2 space-y-0">
+                        <FormControl>
+                        <RadioGroupItem value="admin" />
+                        </FormControl>
+                        <FormLabel className="font-normal">Admin</FormLabel>
+                    </FormItem>
+                  )}
                   <FormItem className="flex items-center space-x-2 space-y-0">
                     <FormControl>
                       <RadioGroupItem value="pharmacy" />

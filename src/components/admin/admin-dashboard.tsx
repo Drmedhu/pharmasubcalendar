@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import type { Shift, UserProfile } from '@/lib/types';
-import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import UserManagementTab from './user-management-tab';
 import ShiftManagementTab from './shift-management-tab';
@@ -15,7 +14,6 @@ interface AdminDashboardProps {
 
 export function AdminDashboard({ profiles, shifts, onCancelBooking }: AdminDashboardProps) {
   
-  // Add a defensive check to ensure data is ready before rendering tabs
   if (!profiles || !shifts) {
     return (
         <div className="flex min-h-screen w-full flex-col items-center justify-center">
@@ -34,13 +32,13 @@ export function AdminDashboard({ profiles, shifts, onCancelBooking }: AdminDashb
         </TabsList>
         <TabsContent value="shifts">
             <ShiftManagementTab 
-                shifts={shifts || []}
-                profiles={profiles || []}
+                shifts={shifts}
+                profiles={profiles}
                 onCancelBooking={onCancelBooking}
             />
         </TabsContent>
         <TabsContent value="users">
-            <UserManagementTab profiles={profiles || []} />
+            <UserManagementTab profiles={profiles} />
         </TabsContent>
       </Tabs>
     </div>

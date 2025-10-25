@@ -5,5 +5,6 @@ import type { UserProfile } from "@/lib/types";
 export const ADMIN_EMAIL = "erno.santha@drmed.hu";
 
 export const isAdmin = (userProfile: UserProfile | null | undefined): boolean => {
-    return userProfile?.email === ADMIN_EMAIL;
+    if (!userProfile) return false;
+    return userProfile.role === 'admin' || userProfile.email === ADMIN_EMAIL;
 }

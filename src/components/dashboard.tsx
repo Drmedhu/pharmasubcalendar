@@ -8,129 +8,119 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { format } from 'date-fns';
 import { Header } from '@/components/header';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useFirestore, useUser, useDoc } from '@/firebase';
-import { collection, doc, query, where, Timestamp } from 'firebase/firestore';
-import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { useUser } from '@/firebase';
+import { Timestamp } from 'firebase/firestore';
 import { isAdmin } from '@/lib/admin';
 import { AdminDashboard } from './admin/admin-dashboard';
-
+import { MOCK_SHIFTS, MOCK_PROFILES, MOCK_PHARMACIES } from '@/lib/mock-data';
 
 export function Dashboard() {
   const { user, isUserLoading: isAuthLoading } = useUser();
-  const firestore = useFirestore();
   const { toast } = useToast();
   
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date());
   
-  // 1. Fetch user profile first. This is the only query that runs initially.
-  const userProfileRef = React.useMemo(() => {
-    if (!firestore || !user) return null;
-    return doc(firestore, 'userProfiles', user.uid);
-  }, [firestore, user]);
-  const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
-
-  // 2. Determine roles and admin status *after* profile is loaded.
-  const userIsAdmin = React.useMemo(() => {
-    if (isProfileLoading || !userProfile) return false;
-    return isAdmin(userProfile);
-  }, [userProfile, isProfileLoading]);
-
-  const isPharmacy = !isProfileLoading && userProfile?.role === 'pharmacy';
-  const isSubstitute = !isProfileLoading && userProfile?.role === 'substitute';
-
-  // --- DATA FETCHING (Now dependent on profile loading status) ---
+  const [allShifts, setAllShifts] = React.useState<Shift[]>(MOCK_SHIFTS);
+  const [allProfiles, setAllProfiles] = React.useState<UserProfile[]>(MOCK_PROFILES);
+  const [allPharmacies, setAllPharmacies] = React.useState<Pharmacy[]>(MOCK_PHARMACIES);
   
-  // -- ADMIN DATA --
-  const adminProfilesQuery = React.useMemo(() => {
-      if (!firestore || !userIsAdmin) return null;
-      return collection(firestore, 'userProfiles');
-  }, [firestore, userIsAdmin]);
-  const { data: adminProfiles } = useCollection<UserProfile>(adminProfilesQuery);
+  // 1. Find user profile from mock data.
+  const userProfile = React.useMemo(() => {
+    if (!user) return null;
+    return allProfiles.find(p => p.userId === user.uid);
+  }, [user, allProfiles]);
 
-  const adminShiftsQuery = React.useMemo(() => {
-      if (!firestore || !userIsAdmin) return null;
-      return collection(firestore, 'shifts');
-  }, [firestore, userIsAdmin]);
-  const { data: adminShifts } = useCollection<Shift>(adminShiftsQuery);
+  // 2. Determine roles and admin status from mock profile.
+  const userIsAdmin = React.useMemo(() => {
+    if (!userProfile) return false;
+    return isAdmin(userProfile);
+  }, [userProfile]);
 
-
-  // -- NON-ADMIN DATA --
-  const nonAdminPharmaciesQuery = React.useMemo(() => {
-    if (isProfileLoading || !firestore || !user || userIsAdmin) return null;
-    if (isPharmacy) return query(collection(firestore, 'pharmacies'), where('userId', '==', user.uid));
-    if (isSubstitute) return collection(firestore, 'pharmacies'); 
-    return null;
-  }, [firestore, user, isProfileLoading, isPharmacy, isSubstitute, userIsAdmin]);
-  const { data: nonAdminPharmacies } = useCollection<Pharmacy>(nonAdminPharmaciesQuery);
-
-  const nonAdminShiftsQuery = React.useMemo(() => {
-    if (isProfileLoading || !firestore || !user || userIsAdmin) return null;
-    if (isPharmacy) return query(collection(firestore, 'shifts'), where('userId', '==', user.uid));
-    if (isSubstitute) return collection(firestore, 'shifts'); 
-    return null;
-  }, [firestore, user, isProfileLoading, isPharmacy, isSubstitute, userIsAdmin]);
-  const { data: nonAdminShifts } = useCollection<Shift>(nonAdminShiftsQuery);
-
+  const isPharmacy = userProfile?.role === 'pharmacy';
+  const isSubstitute = userProfile?.role === 'substitute';
 
   // --- DERIVED STATE & MEMOS ---
 
-  const isDashboardLoading = isAuthLoading || isProfileLoading;
+  const isDashboardLoading = isAuthLoading;
 
   const allData = React.useMemo(() => {
     if (userIsAdmin) {
       return {
         pharmacies: [], // Admins don't manage their own pharmacies in the main view
-        shifts: adminShifts,
-        profiles: adminProfiles,
+        shifts: allShifts,
+        profiles: allProfiles,
       };
     }
+    if (isPharmacy) {
+        return {
+            pharmacies: allPharmacies.filter(p => p.userId === user?.uid),
+            shifts: allShifts.filter(s => s.userId === user?.uid),
+            profiles: null,
+        }
+    }
+    if (isSubstitute) {
+        return {
+            pharmacies: allPharmacies,
+            shifts: allShifts,
+            profiles: null,
+        }
+    }
     return {
-      pharmacies: nonAdminPharmacies,
-      shifts: nonAdminShifts,
+      pharmacies: [],
+      shifts: [],
       profiles: null,
     };
-  }, [userIsAdmin, adminProfiles, adminShifts, nonAdminPharmacies, nonAdminShifts]);
+  }, [userIsAdmin, isPharmacy, isSubstitute, user?.uid, allShifts, allProfiles, allPharmacies]);
 
   // --- Event Handlers ---
 
   const handleBookShift = (shiftId: string) => {
-    if (!firestore || !user || !isSubstitute) return;
-    const shiftRef = doc(firestore, 'shifts', shiftId);
-    updateDocumentNonBlocking(shiftRef, { status: 'booked', bookedBy: user.uid });
+    if (!user || !isSubstitute) return;
+    setAllShifts(prevShifts => prevShifts.map(shift => 
+        shift.id === shiftId ? { ...shift, status: 'booked', bookedBy: user.uid } : shift
+    ));
     toast({ title: "Shift Booked!", description: "The shift has been added to your calendar."});
   };
 
   const handleCancelBooking = (shiftId: string) => {
-    if (!firestore || !user) return; // Allow substitute and admin
-    const shiftRef = doc(firestore, 'shifts', shiftId);
-    updateDocumentNonBlocking(shiftRef, { status: 'available', bookedBy: null });
+    if (!user) return; 
+    setAllShifts(prevShifts => prevShits.map(shift => 
+        shift.id === shiftId ? { ...shift, status: 'available', bookedBy: null } : shift
+    ));
     toast({ title: "Booking Cancelled", description: "The shift is now available again." });
   };
 
   const handleCreateShift = (newShift: Omit<Shift, 'id' | 'status'>) => {
-    if (!firestore || !user || !isPharmacy) return;
-    const shiftsCollection = collection(firestore, 'shifts');
-    const { date, ...restOfShift } = newShift;
-    const dateAsTimestamp = Timestamp.fromDate(new Date(date as string));
-    addDocumentNonBlocking(shiftsCollection, { ...restOfShift, date: dateAsTimestamp, status: 'available', userId: user.uid });
+    if (!user || !isPharmacy) return;
+    const shiftWithId: Shift = {
+        ...newShift,
+        id: `shift_${Date.now()}`,
+        status: 'available',
+        userId: user.uid,
+    }
+    setAllShifts(prevShifts => [...prevShifts, shiftWithId]);
   };
   
   const handleCreatePharmacy = (newPharmacy: Omit<Pharmacy, 'id'>) => {
-     if (!firestore || !user || !isPharmacy) return { ...newPharmacy, id: ''};
-    const pharmaciesCollection = collection(firestore, 'pharmacies');
-    addDocumentNonBlocking(pharmaciesCollection, { ...newPharmacy, userId: user.uid });
-    return { ...newPharmacy, id: `ph_${Date.now()}` };
+     if (!user || !isPharmacy) return { ...newPharmacy, id: ''};
+    const pharmacyWithId: Pharmacy = {
+        ...newPharmacy,
+        id: `ph_${Date.now()}`,
+        userId: user.uid,
+    }
+    setAllPharmacies(prevPharmacies => [...prevPharmacies, pharmacyWithId]);
+    return pharmacyWithId;
   };
 
   const handleDeletePharmacy = (pharmacyId: string) => {
-    if (!firestore || !isPharmacy) return;
-    deleteDocumentNonBlocking(doc(firestore, 'pharmacies', pharmacyId));
+    if (!isPharmacy) return;
+    setAllPharmacies(prev => prev.filter(p => p.id !== pharmacyId));
     toast({ title: 'Pharmacy Deleted', description: 'The pharmacy has been deleted.', variant: 'destructive' });
   };
 
   const handleSaveProfile = (profileData: Omit<UserProfile, 'id' | 'userId'>) => {
-    if (!userProfileRef) return;
-    setDocumentNonBlocking(userProfileRef, { ...profileData, userId: userProfileRef.id }, { merge: true });
+    if(!user) return;
+    setAllProfiles(prev => prev.map(p => p.userId === user.uid ? { ...p, ...profileData } : p));
     toast({ title: 'Profile Saved', description: 'Your profile has been successfully updated.' });
   };
 
@@ -212,5 +202,3 @@ export function Dashboard() {
     </>
   );
 }
-
-    

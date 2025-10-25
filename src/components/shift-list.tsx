@@ -36,7 +36,7 @@ export default function ShiftList({ shifts, pharmacies, onBookShift, onCancelBoo
     <ScrollArea className="h-[32rem]">
       <div className="flex flex-col gap-4 pr-4">
         {sortedShifts.map((shift) => {
-          const pharmacy = pharmacies.find((p) => p.userId === shift.userId);
+          const pharmacy = pharmacies.find((p) => p.id === shift.userId); // Corrected to use shift.userId
           return (
             <React.Fragment key={shift.id}>
               <ShiftCard
@@ -56,5 +56,3 @@ export default function ShiftList({ shifts, pharmacies, onBookShift, onCancelBoo
     </ScrollArea>
   );
 }
-
-    

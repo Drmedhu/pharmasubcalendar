@@ -25,7 +25,7 @@ export type UserProfile = {
     userId: string;
     name: string;
     email: string;
-    role: 'pharmacy' | 'substitute';
+    role: 'pharmacy' | 'substitute' | 'admin';
 };
 
     

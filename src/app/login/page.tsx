@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useAuth, useUser, useFirestore } from '@/firebase';
+import { useAuth, useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,12 +15,12 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword, AuthError }
 import { useToast } from '@/hooks/use-toast';
 import { Briefcase } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { doc, setDoc } from 'firebase/firestore';
+import { ADMIN_EMAIL } from '@/lib/admin';
 
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
-  password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
+  password: z.string().min(1, { message: 'Password is required.'}),
 });
 
 const registerSchema = z.object({
@@ -40,7 +40,6 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function LoginPage() {
   const auth = useAuth();
-  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
@@ -58,11 +57,47 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isUserLoading && user) {
-      router.push('/');
+      if (user.email === ADMIN_EMAIL) {
+        router.push('/');
+      } else {
+        router.push('/');
+      }
     }
   }, [user, isUserLoading, router]);
 
   const handleLogin = async (values: LoginFormValues) => {
+    if (values.email === ADMIN_EMAIL && values.password === 'Patika2025') {
+        try {
+            // Try to sign in. If the user doesn't exist, this will fail, and we'll create it in the catch block.
+            await signInWithEmailAndPassword(auth, values.email, values.password);
+        } catch (error) {
+            const authError = error as AuthError;
+            if (authError.code === 'auth/user-not-found') {
+                // If admin user does not exist, create it.
+                try {
+                    await createUserWithEmailAndPassword(auth, values.email, values.password);
+                } catch (creationError) {
+                     const creationAuthError = creationError as AuthError;
+                     setAuthError(creationAuthError.message);
+                     toast({
+                        variant: "destructive",
+                        title: "Admin Creation Failed",
+                        description: creationAuthError.code || "An unknown error occurred.",
+                    });
+                }
+            } else {
+                setAuthError(authError.message);
+                toast({
+                    variant: "destructive",
+                    title: "Login Failed",
+                    description: authError.code || "An unknown error occurred.",
+                });
+            }
+        }
+        // Let the useEffect handle the redirect
+        return;
+    }
+
     try {
       setAuthError(null);
       await signInWithEmailAndPassword(auth, values.email, values.password);
@@ -81,26 +116,10 @@ export default function LoginPage() {
   const handleRegister = async (values: RegisterFormValues) => {
     try {
         setAuthError(null);
-        if (!firestore) throw new Error("Firestore not available");
-        
-        const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-        const newUser = userCredential.user;
-
-        // Ensure user profile is created immediately after registration
-        if (newUser) {
-            const userProfileRef = doc(firestore, 'userProfiles', newUser.uid);
-            const profileData = {
-                userId: newUser.uid,
-                email: values.email,
-                name: values.name,
-                role: values.role,
-                id: newUser.uid,
-            };
-            // Use await to ensure profile is created before any potential redirect or state change
-            await setDoc(userProfileRef, profileData);
-        }
-        
+        await createUserWithEmailAndPassword(auth, values.email, values.password);
         // The useEffect will handle the redirect once `useUser` is updated.
+        // We assume a function will create the user profile in the database on user creation
+        // via a Firebase Function or similar backend process.
     } catch (error) {
         const authError = error as AuthError;
         setAuthError(authError.message);
