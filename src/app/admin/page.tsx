@@ -27,12 +27,8 @@ export default function AdminPage() {
     React.useEffect(() => {
         // Only run redirection logic after all loading is complete.
         if (!isLoading) {
-            // If there is no logged-in user, or if the profile has loaded and the user is NOT an admin, redirect.
-            if (!user || (userProfile && !isUserAdmin)) {
-                router.push('/');
-            }
-            // Also handles the case where the profile document doesn't exist after loading.
-            else if (!userProfile) {
+            // After loading, if there is no user, no profile, or the user is not an admin, redirect.
+            if (!user || !userProfile || !isUserAdmin) {
                 router.push('/');
             }
         }
