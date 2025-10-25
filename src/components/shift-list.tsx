@@ -10,12 +10,13 @@ interface ShiftListProps {
   shifts: Shift[];
   pharmacies: Pharmacy[];
   onBookShift: (shiftId: string) => void;
-  onCancelBooking: (shiftId: string) => void;
+  onCancelBooking?: (shiftId: string) => void; // Made optional for public view
   currentUserId?: string;
-  userRole: UserProfile['role'];
+  userRole?: UserProfile['role']; // Made optional for public view
+  isPublicView?: boolean;
 }
 
-export default function ShiftList({ shifts, pharmacies, onBookShift, onCancelBooking, currentUserId, userRole }: ShiftListProps) {
+export default function ShiftList({ shifts, pharmacies, onBookShift, onCancelBooking, currentUserId, userRole, isPublicView = false }: ShiftListProps) {
   if (shifts.length === 0) {
     return (
       <div className="flex h-64 items-center justify-center rounded-md border border-dashed bg-muted/50">
@@ -45,6 +46,7 @@ export default function ShiftList({ shifts, pharmacies, onBookShift, onCancelBoo
                 onCancelBooking={onCancelBooking}
                 currentUserId={currentUserId}
                 userRole={userRole}
+                isPublicView={isPublicView}
               />
               <Separator className="last:hidden" />
             </React.Fragment>

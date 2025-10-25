@@ -137,7 +137,11 @@ export function Dashboard() {
 
   const handleDeletePharmacy = async (pharmacyId: string) => {
     if (!firestore || userProfile?.role !== 'pharmacy') return;
-    const shiftDocsToDelete = await query(collection(firestore, 'shifts'), where('pharmacyId', '==', pharmacyId));
+    const shiftDocsToDeleteQuery = query(collection(firestore, 'shifts'), where('pharmacyId', '==', pharmacyId));
+    // This part should be done in a backend function for atomicity in a real app
+    // For now, we proceed with client-side deletion.
+    const shiftDocsToDelete = await getDocs(shiftDocsToDeleteQuery);
+
 
     shiftDocsToDelete.docs.forEach(shiftDoc => {
       deleteDocumentNonBlocking(shiftDoc.ref);

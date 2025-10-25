@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { format } from 'date-fns';
 import { PublicHeader } from '@/components/public-header';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, query, where, Timestamp } from 'firebase/firestore';
+import { collection, query, where, Timestamp, getDocs } from 'firebase/firestore';
 
 interface PublicDashboardProps {
   userId: string;
@@ -34,7 +34,7 @@ export function PublicDashboard({ userId }: PublicDashboardProps) {
   const shiftsWithDateObjects = React.useMemo(() => {
     return shifts?.map(s => ({
       ...s,
-      date: s.date instanceof Timestamp ? s.date.toDate() : new Date(s.date)
+      date: s.date instanceof Timestamp ? s.date.toDate() : new Date(s.date as string)
     })) || [];
   }, [shifts]);
 
