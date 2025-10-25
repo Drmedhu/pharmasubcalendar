@@ -15,7 +15,7 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword, AuthError }
 import { useToast } from '@/hooks/use-toast';
 import { Briefcase } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { doc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 
 
 const loginSchema = z.object({
@@ -81,10 +81,12 @@ export default function LoginPage() {
   const handleRegister = async (values: RegisterFormValues) => {
     try {
         setAuthError(null);
+        if (!firestore) throw new Error("Firestore not available");
+        
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
         const user = userCredential.user;
 
-        if (user && firestore) {
+        if (user) {
             const userProfileRef = doc(firestore, 'userProfiles', user.uid);
             const profileData = {
                 userId: user.uid,
@@ -92,11 +94,11 @@ export default function LoginPage() {
                 name: values.name,
                 role: values.role
             };
-            // This is a non-blocking write. We proceed without waiting for it to complete.
-            setDocumentNonBlocking(userProfileRef, profileData, { merge: true });
+            // Use await here to ensure profile is created before redirecting
+            await setDoc(userProfileRef, profileData, { merge: true });
         }
         
-        // Let the useEffect handle the redirect
+        // Let the useEffect handle the redirect. It will trigger once the `user` object from `useUser` is updated.
     } catch (error) {
         const authError = error as AuthError;
         setAuthError(authError.message);

@@ -31,28 +31,28 @@ export function Dashboard() {
   
   // PHARMACY role: fetches only their own pharmacies
   const pharmacyPharmaciesQuery = useMemoFirebase(() => {
-    if (!firestore || !user || userProfile?.role !== 'pharmacy') return null;
+    if (!firestore || !user || !userProfile || userProfile.role !== 'pharmacy') return null;
     return query(collection(firestore, 'pharmacies'), where('userId', '==', user.uid));
   }, [firestore, user, userProfile]);
   const { data: pharmacyPharmacies, isLoading: isLoadingPharmacyPharmacies } = useCollection<Pharmacy>(pharmacyPharmaciesQuery);
 
   // PHARMACY role: fetches only their own shifts
   const pharmacyShiftsQuery = useMemoFirebase(() => {
-    if (!firestore || !user || userProfile?.role !== 'pharmacy') return null;
+    if (!firestore || !user || !userProfile || userProfile.role !== 'pharmacy') return null;
     return query(collection(firestore, 'shifts'), where('userId', '==', user.uid));
   }, [firestore, user, userProfile]);
   const { data: pharmacyShifts, isLoading: isLoadingPharmacyShifts } = useCollection<Shift>(pharmacyShiftsQuery);
   
   // SUBSTITUTE role: fetches ALL pharmacies to display shift details
   const substitutePharmaciesQuery = useMemoFirebase(() => {
-    if (!firestore || userProfile?.role !== 'substitute') return null;
+    if (!firestore || !userProfile || userProfile.role !== 'substitute') return null;
     return collection(firestore, 'pharmacies');
   }, [firestore, userProfile]);
   const { data: substitutePharmacies, isLoading: isLoadingSubstitutePharmacies } = useCollection<Pharmacy>(substitutePharmaciesQuery);
   
   // SUBSTITUTE role: fetches ALL shifts. We will filter on the client.
   const substituteShiftsQuery = useMemoFirebase(() => {
-    if (!firestore || userProfile?.role !== 'substitute') return null;
+    if (!firestore || !userProfile || userProfile.role !== 'substitute') return null;
      return collection(firestore, 'shifts');
   }, [firestore, userProfile]);
   const { data: substituteShifts, isLoading: isLoadingSubstituteShifts } = useCollection<Shift>(substituteShiftsQuery);
