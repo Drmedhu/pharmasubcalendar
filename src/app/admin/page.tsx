@@ -44,7 +44,8 @@ export default function AdminPage() {
     }
 
     // 2. After loading, if the user is an admin, show the dashboard.
-    if (userProfile && isAdmin(userProfile)) {
+    // This check is now safe because `isLoading` is false, meaning both `user` and `userProfile` have settled.
+    if (user && userProfile && isAdmin(userProfile)) {
         return (
             <div className="flex min-h-screen w-full flex-col">
                 <PublicHeader />
