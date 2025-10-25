@@ -14,12 +14,47 @@ import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlo
 import { isAdmin } from '@/lib/admin';
 import { AdminDashboard } from './admin/admin-dashboard';
 
+// Separate component to handle admin-specific data fetching
+function AdminDataLayer({ onDataLoaded, userProfile }: { onDataLoaded: (data: { profiles: UserProfile[], shifts: Shift[] }) => void, userProfile: UserProfile }) {
+  const firestore = useFirestore();
+
+  const profilesQuery = useMemoFirebase(() => {
+    if (!firestore || !isAdmin(userProfile)) return null;
+    return collection(firestore, 'userProfiles');
+  }, [firestore, userProfile]);
+  const { data: profiles, isLoading: isLoadingProfiles } = useCollection<UserProfile>(profilesQuery);
+
+  const shiftsQuery = useMemoFirebase(() => {
+    if (!firestore || !isAdmin(userProfile)) return null;
+    return collection(firestore, 'shifts');
+  }, [firestore, userProfile]);
+  const { data: shifts, isLoading: isLoadingShifts } = useCollection<Shift>(shiftsQuery);
+
+  React.useEffect(() => {
+    if (!isLoadingProfiles && !isLoadingShifts && profiles && shifts) {
+      onDataLoaded({ profiles, shifts });
+    }
+  }, [profiles, shifts, isLoadingProfiles, isLoadingShifts, onDataLoaded]);
+
+  return null; // This component does not render anything itself
+}
+
+
 export function Dashboard() {
   const { user, isUserLoading: isAuthLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
   
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date());
+  
+  // State for all data, to be populated by specific fetchers
+  const [allData, setAllData] = React.useState<{
+      pharmacies: Pharmacy[] | null;
+      shifts: Shift[] | null;
+      profiles: UserProfile[] | null;
+  }>({ pharmacies: null, shifts: null, profiles: null });
+
+  const [isDashboardLoading, setDashboardLoading] = React.useState(true);
 
   // 1. Fetch user profile first
   const userProfileRef = useMemoFirebase(() => {
@@ -32,35 +67,56 @@ export function Dashboard() {
   const isPharmacy = userProfile?.role === 'pharmacy';
   const isSubstitute = userProfile?.role === 'substitute';
 
-  // --- Data Hooks ---
-  // These will only run *after* the user profile is loaded and the role is known.
-
-  // 2. Fetch data based on role
+  // --- NON-ADMIN DATA ---
   const pharmaciesQuery = useMemoFirebase(() => {
-    if (isProfileLoading || !firestore || !user) return null; // Wait for profile
+    if (isProfileLoading || !firestore || !user || userIsAdmin) return null; // Don't run for admin
     if (isPharmacy) return query(collection(firestore, 'pharmacies'), where('userId', '==', user.uid));
-    if (isSubstitute || userIsAdmin) return collection(firestore, 'pharmacies');
+    if (isSubstitute) return collection(firestore, 'pharmacies');
     return null;
   }, [firestore, user, isProfileLoading, isPharmacy, isSubstitute, userIsAdmin]);
-  const { data: pharmacies, isLoading: isLoadingPharmacies } = useCollection<Pharmacy>(pharmaciesQuery);
+  const { data: nonAdminPharmacies, isLoading: isLoadingNonAdminPharmacies } = useCollection<Pharmacy>(pharmaciesQuery);
 
   const shiftsQuery = useMemoFirebase(() => {
-    if (isProfileLoading || !firestore || !user) return null; // Wait for profile
+    if (isProfileLoading || !firestore || !user || userIsAdmin) return null; // Don't run for admin
     if (isPharmacy) return query(collection(firestore, 'shifts'), where('userId', '==', user.uid));
-    if (isSubstitute || userIsAdmin) return collection(firestore, 'shifts');
+    if (isSubstitute) return collection(firestore, 'shifts');
     return null;
   }, [firestore, user, isProfileLoading, isPharmacy, isSubstitute, userIsAdmin]);
-  const { data: shifts, isLoading: isLoadingShifts } = useCollection<Shift>(shiftsQuery);
+  const { data: nonAdminShifts, isLoading: isLoadingNonAdminShifts } = useCollection<Shift>(shiftsQuery);
   
-  const profilesQuery = useMemoFirebase(() => {
-    // Only fetch all profiles if the user is an admin AND their profile has loaded
-    if (isProfileLoading || !firestore || !userIsAdmin) return null;
-    return collection(firestore, 'userProfiles');
-  }, [firestore, isProfileLoading, userIsAdmin]);
-  const { data: profiles, isLoading: isLoadingProfiles } = useCollection<UserProfile>(profilesQuery);
+  // --- DATA LOADING EFFECT ---
+  React.useEffect(() => {
+     if (isAuthLoading || isProfileLoading) {
+        setDashboardLoading(true);
+        return;
+     }
+     if (userIsAdmin) {
+        // Admin loading is handled by the AdminDataLayer and onDataLoaded callback
+        setDashboardLoading(true); // Keep loading until admin data arrives
+     } else {
+        if (!isLoadingNonAdminPharmacies && !isLoadingNonAdminShifts) {
+            setAllData({
+                pharmacies: nonAdminPharmacies,
+                shifts: nonAdminShifts,
+                profiles: null, // Not needed for non-admins
+            });
+            setDashboardLoading(false);
+        }
+     }
+  }, [
+      isAuthLoading, isProfileLoading, userIsAdmin, 
+      isLoadingNonAdminPharmacies, isLoadingNonAdminShifts,
+      nonAdminPharmacies, nonAdminShifts
+  ]);
 
-  // Consolidated loading state
-  const isLoading = isAuthLoading || isProfileLoading || (userIsAdmin && isLoadingProfiles) || isLoadingShifts || isLoadingPharmacies;
+  const handleAdminDataLoaded = React.useCallback(({ profiles, shifts }: { profiles: UserProfile[], shifts: Shift[] }) => {
+      setAllData({
+          pharmacies: [], // Admin doesn't manage their own pharmacies in this view
+          shifts: shifts,
+          profiles: profiles,
+      });
+      setDashboardLoading(false);
+  }, []);
 
   // --- Event Handlers ---
 
@@ -106,14 +162,14 @@ export function Dashboard() {
   };
 
   const shiftsWithDateObjects = React.useMemo(() => {
-    return shifts?.map(s => ({ ...s, date: s.date instanceof Timestamp ? s.date.toDate() : new Date(s.date as string) })) || [];
-  }, [shifts]);
+    return allData.shifts?.map(s => ({ ...s, date: s.date instanceof Timestamp ? s.date.toDate() : new Date(s.date as string) })) || [];
+  }, [allData.shifts]);
 
   const shiftsOnSelectedDate = shiftsWithDateObjects.filter(shift => selectedDate && shift.date.toDateString() === selectedDate.toDateString());
 
   // --- Render Logic ---
 
-  if (isLoading) {
+  if (isDashboardLoading) {
     return <div className="flex min-h-screen w-full flex-col items-center justify-center"><p>Loading Dashboard...</p></div>;
   }
   
@@ -123,8 +179,11 @@ export function Dashboard() {
 
   return (
     <>
+      {/* This component will fetch admin data only when needed */}
+      {userIsAdmin && <AdminDataLayer onDataLoaded={handleAdminDataLoaded} userProfile={userProfile} />}
+
       <Header 
-        pharmacies={pharmacies || []} 
+        pharmacies={allData.pharmacies || []} 
         onCreateShift={handleCreateShift} 
         onCreatePharmacy={handleCreatePharmacy} 
         onDeletePharmacy={handleDeletePharmacy}
@@ -133,8 +192,8 @@ export function Dashboard() {
       />
       {userIsAdmin ? (
         <AdminDashboard 
-          shifts={shifts || []}
-          profiles={profiles || []}
+          shifts={allData.shifts || []}
+          profiles={allData.profiles || []}
           onCancelBooking={handleCancelBooking}
         />
       ) : (
@@ -168,7 +227,7 @@ export function Dashboard() {
               <CardContent>
                 <ShiftList
                   shifts={shiftsOnSelectedDate}
-                  pharmacies={pharmacies || []}
+                  pharmacies={allData.pharmacies || []}
                   onBookShift={handleBookShift}
                   onCancelBooking={handleCancelBooking}
                   currentUserId={user?.uid}
