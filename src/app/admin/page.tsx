@@ -42,7 +42,7 @@ export default function AdminPage() {
         );
     }
     
-    // After loading, if they are not an admin, they will be redirected. 
+    // After loading, if they are not an admin (and not loading), they will be redirected. 
     // We can show a message until the redirect happens.
     if (!isAdmin(userProfile)) {
          return (
