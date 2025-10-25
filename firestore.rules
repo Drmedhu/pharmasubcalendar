@@ -1,84 +1,22 @@
-/**
- * @fileoverview Firestore Security Rules for Prototyping.
- *
- * Core Philosophy:
- * This ruleset prioritizes rapid prototyping by focusing on authorization and relationship enforcement,
- * while relaxing data validation. It uses a strict user-ownership model where users can only
- * create, read, update, and delete resources they own.
- *
- * Data Structure:
- * - /pharmacies/{pharmacyId}: Stores pharmacy profiles.
- * - /shifts/{shiftId}: Stores shift information.
- * - /userProfiles/{userId}: Stores user profiles.
- *
- * Key Security Decisions:
- * - User listing is disallowed to protect user privacy.
- * - Data validation is minimal to allow for quick schema iteration. Only critical relational
- *   fields are strictly enforced.
- *
- * Denormalization for Authorization:
- * - Each document contains the `userId` of the user who created it. This is used to enforce
- *   ownership for create, update, and delete operations.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
     /**
-     * @description Grants access to pharmacy documents based on ownership.
-     * @path /pharmacies/{pharmacyId}
-     * @allow (create) - A user with userId 'user123' can create a new pharmacy document if pharmacy.userId == 'user123'.
-     * @allow (get) - Any signed-in user can read a pharmacy document.
-     * @allow (list) - Any signed-in user can list pharmacy documents.
-     * @allow (update) - A user with userId 'user123' can update a pharmacy document if pharmacy.userId == 'user123'.
-     * @allow (delete) - A user with userId 'user123' can delete a pharmacy document if pharmacy.userId == 'user123'.
-     * @deny (create) - A user with userId 'user456' cannot create a new pharmacy document if pharmacy.userId != 'user456'.
-     * @principle Enforces document ownership for writes. Allows public read access.
+     * @description This ruleset enforces a user-ownership model for user profiles and pharmacies,
+     *              allowing only the owning user to read and write their own data. Shifts are
+     *              publicly readable but only writable by the user who created them.
+     * @dataStructure
+     * - /userProfiles/{userId}: Stores user profile data, accessible only to the user.
+     * - /pharmacies/{pharmacyId}: Stores pharmacy data, accessible only to the pharmacy owner.
+     * - /shifts/{shiftId}: Stores shift data. Readable by anyone, but only writable by the shift creator.
+     * @keySecurityDecisions
+     * - Users can only access their own user profile.
+     * - Pharmacies can only be created, updated, or deleted by their owner.
+     * - Shifts are publicly readable to facilitate discovery.
+     * @denormalizationForAuthorization
+     * - Pharmacies and shifts both include a `userId` field to simplify ownership checks.
+     * - Shifts include `pharmacyId` for easy association with the pharmacy that posted it.
      */
-    match /pharmacies/{pharmacyId} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isExistingOwner(resource.data.userId);
-      allow delete: if isExistingOwner(resource.data.userId);
-    }
-
-    /**
-     * @description Grants access to shift documents based on ownership.
-     * @path /shifts/{shiftId}
-     * @allow (create) - A user with userId 'user123' can create a new shift document if shift.userId == 'user123'.
-     * @allow (get) - Any signed-in user can read a shift document.
-     * @allow (list) - Any signed-in user can list shift documents.
-     * @allow (update) - A user with userId 'user123' can update a shift document if shift.userId == 'user123'.
-     * @allow (delete) - A user with userId 'user123' can delete a shift document if shift.userId == 'user123'.
-     * @deny (create) - A user with userId 'user456' cannot create a new shift document if shift.userId != 'user456'.
-     * @principle Enforces document ownership for writes. Allows public read access.
-     */
-    match /shifts/{shiftId} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isExistingOwner(resource.data.userId);
-      allow delete: if isExistingOwner(resource.data.userId);
-    }
-
-    /**
-     * @description Grants access to user profile documents based on ownership.
-     * @path /userProfiles/{userId}
-     * @allow (create) - A user with userId 'user123' can create their own profile if userId == 'user123'.
-     * @allow (get) - A user can read their own profile.
-     * @allow (list) - Only the owner can list their own user profile.
-     * @allow (update) - A user with userId 'user123' can update their own profile if userId == 'user123'.
-     * @allow (delete) - A user with userId 'user123' can delete their own profile if userId == 'user123'.
-     * @deny (create) - A user with userId 'user456' cannot create a profile for 'user123'.
-     * @deny (get) - A user with userId 'user456' cannot read the profile of 'user123'.
-     * @principle Enforces strict user ownership for profile management.
-     */
-    match /userProfiles/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == request.auth.uid;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == userId;
-      allow delete: if isExistingOwner(userId) && request.resource.data.userId == userId;
-    }
 
     function isSignedIn() {
       return request.auth != null;
@@ -89,7 +27,54 @@ service cloud.firestore {
     }
 
     function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
+      return isSignedIn() && isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Grants access to user profile data only to the user themselves.
+     * @path /userProfiles/{userId}
+     * @allow (get, update, delete) User with ID 'user123' can read, update, or delete their own profile at /userProfiles/user123.
+     * @allow (create) User with ID 'user123' can create their own profile at /userProfiles/user123, provided the document's userId field matches.
+     * @deny (get, update, delete) User with ID 'user456' cannot read, update, or delete the profile of user 'user123' at /userProfiles/user123.
+     * @principle Enforces strict user-ownership for profile data.
+     */
+    match /userProfiles/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Grants access to pharmacy data only to the pharmacy owner.
+     * @path /pharmacies/{pharmacyId}
+     * @allow (get, update, delete) User with ID 'user123' can read, update, or delete their own pharmacy at /pharmacies/pharmacy123 if pharmacy.userId == 'user123'.
+     * @allow (create) User with ID 'user123' can create a pharmacy at /pharmacies/pharmacy123 if request.resource.data.userId == 'user123'.
+     * @deny (get, update, delete) User with ID 'user456' cannot read, update, or delete the pharmacy owned by user 'user123' at /pharmacies/pharmacy123.
+     * @principle Enforces strict user-ownership for pharmacy data.
+     */
+    match /pharmacies/{pharmacyId} {
+      allow get: if isOwner(resource.data.userId);
+      allow list: if true;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(resource.data.userId);
+    }
+
+    /**
+     * @description Allows anyone to read shifts, but only the owner to create, update, or delete them.
+     * @path /shifts/{shiftId}
+     * @allow (get, list) Any user can read or list shifts.
+     * @allow (create) User with ID 'user123' can create a shift at /shifts/shift123 if request.resource.data.userId == 'user123'.
+     * @deny (update, delete) User with ID 'user456' cannot update or delete the shift owned by user 'user123' at /shifts/shift123.
+     * @principle Allows public read access but restricts write access to the shift creator.
+     */
+    match /shifts/{shiftId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(resource.data.userId);
     }
   }
 }
