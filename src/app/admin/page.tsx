@@ -24,12 +24,16 @@ export default function AdminPage() {
     const isLoading = isAuthLoading || isProfileLoading;
 
     // After loading, if the user is definitely not an admin, they should be redirected.
-    // This effect is now more robust.
+    // This effect is now more robust and only runs when loading is complete.
     React.useEffect(() => {
-        if (!isLoading) {
-            if (!user || !userProfile || !isAdmin(userProfile)) {
-                router.push('/');
-            }
+        // Do nothing while loading.
+        if (isLoading) {
+            return;
+        }
+        
+        // After loading, if user is not found, profile is not found, or user is not an admin, redirect.
+        if (!user || !userProfile || !isAdmin(userProfile)) {
+            router.push('/');
         }
     }, [isLoading, user, userProfile, router]);
 
