@@ -41,20 +41,9 @@ export function Dashboard() {
         role: 'substitute', // Default role
       };
       // Use setDocumentNonBlocking and let the real-time listener (useDoc) handle the UI update.
-      setDocumentNonBlocking(doc(firestore, 'userProfiles', user.uid), newUserProfile, { merge: false })
-        .then(() => {
-          console.log("Profile creation initiated.");
-          // No need to set isCreatingProfile to false here, the re-render from useDoc will handle it
-        })
-        .catch(error => {
-          console.error("Error creating profile:", error);
-          toast({
-            variant: "destructive",
-            title: "Profile Creation Failed",
-            description: "Could not create your user profile. Please try again.",
-          });
-          setIsCreatingProfile(false); // Allow retry on error
-        });
+      setDocumentNonBlocking(doc(firestore, 'userProfiles', user.uid), newUserProfile, { merge: false });
+      console.log("Profile creation initiated.");
+      // No need to set isCreatingProfile to false here, the re-render from useDoc will handle it
     }
   }, [isLoadingUserProfile, user, userProfile, isCreatingProfile, firestore, toast]);
 
