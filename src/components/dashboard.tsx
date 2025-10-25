@@ -62,7 +62,9 @@ export function Dashboard() {
 
   // Determine final loading state based on role
   const isLoadingData = React.useMemo(() => {
-    if (!userProfile) return false; // Not loading data if profile isn't even loaded
+    if (isLoadingUserProfile) return true; // Still loading profile
+    if (!userProfile) return false; // Profile loaded, but it's null (shouldn't happen if redirected correctly)
+
     if (isPharmacy) {
       return isLoadingPharmacyPharmacies || isLoadingPharmacyShifts;
     }
@@ -70,7 +72,7 @@ export function Dashboard() {
       return isLoadingSubstitutePharmacies || isLoadingSubstituteShifts;
     }
     return false; // Default to not loading if role is unknown
-  }, [isPharmacy, isSubstitute, isLoadingPharmacyPharmacies, isLoadingPharmacyShifts, isLoadingSubstitutePharmacies, isLoadingSubstituteShifts, userProfile]);
+  }, [isLoadingUserProfile, userProfile, isPharmacy, isSubstitute, isLoadingPharmacyPharmacies, isLoadingPharmacyShifts, isLoadingSubstitutePharmacies, isLoadingSubstituteShifts]);
 
   // --- DERIVED STATE: Determine which data to use based on role ---
   const pharmacies = isPharmacy ? pharmacyPharmacies : substitutePharmacies;
@@ -159,12 +161,21 @@ export function Dashboard() {
       shift.date.toDateString() === selectedDate.toDateString()
   );
 
-  if (isLoadingUserProfile || !userProfile || isLoadingData) {
+  if (isLoadingData) {
     return (
         <div className="flex min-h-screen w-full flex-col items-center justify-center">
             <p>Loading Dashboard...</p>
         </div>
     );
+  }
+  
+  if (!userProfile) {
+    // This case can happen briefly or if there's a serious error.
+    return (
+      <div className="flex min-h-screen w-full flex-col items-center justify-center">
+            <p>Error loading user profile. Please try again.</p>
+        </div>
+    )
   }
 
   return (
