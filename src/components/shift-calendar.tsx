@@ -15,15 +15,18 @@ interface ShiftCalendarProps {
 export default function ShiftCalendar({ shifts, selectedDate, setSelectedDate, ownUserId }: ShiftCalendarProps) {
   
   const markedDays = React.useMemo(() => {
-    const shiftDays = ownUserId
+    // If ownUserId is provided (for pharmacies), mark days that have any of their shifts.
+    // If not (for substitutes), mark days that have *available* shifts.
+    const shiftsToConsider = ownUserId
         ? shifts.filter(shift => shift.userId === ownUserId)
         : shifts.filter(shift => shift.status === 'available');
 
-    return shiftDays.map((shift) => {
+    return shiftsToConsider.map((shift) => {
         if (shift.date instanceof Timestamp) {
             return shift.date.toDate();
         }
-        return new Date(shift.date as string);
+        // This handles both Date objects and string representations
+        return new Date(shift.date as string | Date);
     });
   }, [shifts, ownUserId]);
 
