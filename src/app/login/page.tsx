@@ -84,21 +84,22 @@ export default function LoginPage() {
         if (!firestore) throw new Error("Firestore not available");
         
         const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-        const user = userCredential.user;
+        const newUser = userCredential.user;
 
-        if (user) {
-            const userProfileRef = doc(firestore, 'userProfiles', user.uid);
+        if (newUser) {
+            const userProfileRef = doc(firestore, 'userProfiles', newUser.uid);
             const profileData = {
-                userId: user.uid,
+                userId: newUser.uid,
                 email: values.email,
                 name: values.name,
-                role: values.role
+                role: values.role // This was missing
             };
             // Use await here to ensure profile is created before redirecting
             await setDoc(userProfileRef, profileData);
         }
         
-        // Let the useEffect handle the redirect. It will trigger once the `user` object from `useUser` is updated.
+        // The useEffect will handle the redirect once `useUser` is updated.
+        // No need to manually push here.
     } catch (error) {
         const authError = error as AuthError;
         setAuthError(authError.message);
