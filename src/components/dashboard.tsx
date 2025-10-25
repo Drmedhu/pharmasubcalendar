@@ -12,6 +12,7 @@ import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from '@
 import { collection, doc, query, where, Timestamp } from 'firebase/firestore';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { isAdmin } from '@/lib/admin';
+import { AdminDashboard } from './admin/admin-dashboard';
 
 export function Dashboard() {
   const { user, isUserLoading: isAuthLoading } = useUser();
@@ -31,6 +32,7 @@ export function Dashboard() {
   // --- DERIVED STATE ---
   const isPharmacy = userProfile?.role === 'pharmacy';
   const isSubstitute = userProfile?.role === 'substitute';
+  const userIsAdmin = isAdmin(userProfile);
 
   // --- QUERIES (conditionally enabled) ---
   
@@ -66,6 +68,8 @@ export function Dashboard() {
     if (isAuthLoading || isProfileLoading) return true;
     if (!userProfile) return true; // Profile is essential, if it's not loaded, we are loading.
 
+    if (userIsAdmin) return false; // Admin view has its own loading state
+
     if (isPharmacy) {
       return isLoadingPharmacyPharmacies || isLoadingPharmacyShifts;
     }
@@ -73,7 +77,7 @@ export function Dashboard() {
       return isLoadingSubstitutePharmacies || isLoadingSubstituteShifts;
     }
     return false; // Default case
-  }, [isAuthLoading, isProfileLoading, userProfile, isPharmacy, isSubstitute, isLoadingPharmacyPharmacies, isLoadingPharmacyShifts, isLoadingSubstitutePharmacies, isLoadingSubstituteShifts]);
+  }, [isAuthLoading, isProfileLoading, userProfile, isPharmacy, isSubstitute, userIsAdmin, isLoadingPharmacyPharmacies, isLoadingPharmacyShifts, isLoadingSubstitutePharmacies, isLoadingSubstituteShifts]);
 
   // --- DERIVED DATA: Determine which data to use based on role ---
   const pharmacies = isPharmacy ? pharmacyPharmacies : substitutePharmacies;
@@ -182,53 +186,57 @@ export function Dashboard() {
         userProfile={userProfile}
         onSaveProfile={handleSaveProfile}
       />
-      <div className="container mx-auto grid max-w-7xl grid-cols-1 gap-8 p-4 md:grid-cols-3 lg:grid-cols-5 md:p-6 lg:p-8">
-        <div className="lg:col-span-3 md:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Shift Calendar</CardTitle>
-              <CardDescription>
-                {isSubstitute
-                  ? "Select a day to view available shifts. Days with available shifts are marked."
-                  : "Manage your pharmacy's shifts. Days with your shifts are marked."}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ShiftCalendar
-                shifts={shiftsWithDateObjects}
-                selectedDate={selectedDate}
-                setSelectedDate={setSelectedDate}
-                ownUserId={isPharmacy ? user?.uid : undefined}
-              />
-            </CardContent>
-          </Card>
+      {userIsAdmin ? (
+        <AdminDashboard />
+      ) : (
+        <div className="container mx-auto grid max-w-7xl grid-cols-1 gap-8 p-4 md:grid-cols-3 lg:grid-cols-5 md:p-6 lg:p-8">
+          <div className="lg:col-span-3 md:col-span-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Shift Calendar</CardTitle>
+                <CardDescription>
+                  {isSubstitute
+                    ? "Select a day to view available shifts. Days with available shifts are marked."
+                    : "Manage your pharmacy's shifts. Days with your shifts are marked."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ShiftCalendar
+                  shifts={shiftsWithDateObjects}
+                  selectedDate={selectedDate}
+                  setSelectedDate={setSelectedDate}
+                  ownUserId={isPharmacy ? user?.uid : undefined}
+                />
+              </CardContent>
+            </Card>
+          </div>
+          <div className="lg:col-span-2 md:col-span-1">
+            <Card className="h-full">
+              <CardHeader>
+                <CardTitle>
+                  Shifts for{' '}
+                  {selectedDate ? format(selectedDate, 'MMMM d') : '...'}
+                </CardTitle>
+                <CardDescription>
+                  {isSubstitute
+                    ? "Shifts you can book or have already booked."
+                    : "All shifts scheduled at your pharmacy for the selected day."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ShiftList
+                  shifts={shiftsOnSelectedDate}
+                  pharmacies={pharmacies || []}
+                  onBookShift={handleBookShift}
+                  onCancelBooking={handleCancelBooking}
+                  currentUserId={user?.uid}
+                  userRole={userProfile.role}
+                />
+              </CardContent>
+            </Card>
+          </div>
         </div>
-        <div className="lg:col-span-2 md:col-span-1">
-          <Card className="h-full">
-            <CardHeader>
-              <CardTitle>
-                Shifts for{' '}
-                {selectedDate ? format(selectedDate, 'MMMM d') : '...'}
-              </CardTitle>
-              <CardDescription>
-                {isSubstitute
-                  ? "Shifts you can book or have already booked."
-                  : "All shifts scheduled at your pharmacy for the selected day."}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ShiftList
-                shifts={shiftsOnSelectedDate}
-                pharmacies={pharmacies || []}
-                onBookShift={handleBookShift}
-                onCancelBooking={handleCancelBooking}
-                currentUserId={user?.uid}
-                userRole={userProfile.role}
-              />
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      )}
     </>
   );
 }
