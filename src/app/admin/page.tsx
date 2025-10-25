@@ -25,19 +25,22 @@ export default function AdminPage() {
     const isLoading = isAuthLoading || isProfileLoading;
 
     React.useEffect(() => {
-        // Wait until loading is finished to make a decision
+        // Only run redirection logic after all loading is complete.
         if (!isLoading) {
-            // If there's no user logged in, or if the user profile has loaded and they are not an admin
+            // If there is no logged-in user, or if the profile has loaded and the user is NOT an admin, redirect.
             if (!user || (userProfile && !isUserAdmin)) {
                 router.push('/');
-            } else if (!userProfile && !isLoading) { // Specifically handle case where profile doesn't exist after loading
-                 router.push('/');
+            }
+            // Also handles the case where the profile document doesn't exist after loading.
+            else if (!userProfile) {
+                router.push('/');
             }
         }
-    }, [user, userProfile, isUserAdmin, isLoading, router]);
+    }, [isLoading, user, userProfile, isUserAdmin, router]);
     
-    // Show a loading screen while we verify auth and profile
-    if (isLoading || !userProfile || !isUserAdmin) {
+    // Show a loading screen while we verify auth and profile.
+    // This state is also shown if the user is not an admin, just before the redirect happens.
+    if (isLoading || !isUserAdmin) {
         return (
             <div className="flex min-h-screen w-full flex-col items-center justify-center">
                 <p>Verifying admin permissions...</p>
@@ -45,7 +48,7 @@ export default function AdminPage() {
         );
     }
     
-    // If all checks pass, render the admin dashboard
+    // If all checks pass, render the admin dashboard.
     return (
         <div className="flex min-h-screen w-full flex-col">
             <PublicHeader />
