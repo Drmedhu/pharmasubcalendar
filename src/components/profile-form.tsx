@@ -20,7 +20,7 @@ import type { UserProfile } from '@/lib/types';
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Please enter a valid email address.' }),
-  role: z.enum(['pharmacist', 'assistant'], {
+  role: z.enum(['pharmacy', 'substitute'], {
     required_error: "You need to select a role.",
   }),
 });
@@ -39,7 +39,7 @@ export default function ProfileForm({ userProfile, onSave, onFormSubmit }: Profi
     values: {
       name: userProfile?.name || '',
       email: userProfile?.email || '',
-      role: userProfile?.role || 'pharmacist',
+      role: userProfile?.role || 'substitute',
     },
   });
 
@@ -56,7 +56,7 @@ export default function ProfileForm({ userProfile, onSave, onFormSubmit }: Profi
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Full Name</FormLabel>
+              <FormLabel>Full Name / Pharmacy Name</FormLabel>
               <FormControl>
                 <Input placeholder="John Doe" {...field} />
               </FormControl>
@@ -71,9 +71,9 @@ export default function ProfileForm({ userProfile, onSave, onFormSubmit }: Profi
             <FormItem>
               <FormLabel>Email Address</FormLabel>
               <FormControl>
-                <Input placeholder="john.doe@example.com" {...field} />
+                <Input placeholder="john.doe@example.com" {...field} readOnly disabled />
               </FormControl>
-              <FormMessage />
+               <FormMessage />
             </FormItem>
           )}
         />
@@ -82,24 +82,25 @@ export default function ProfileForm({ userProfile, onSave, onFormSubmit }: Profi
           name="role"
           render={({ field }) => (
             <FormItem className="space-y-3">
-              <FormLabel>I am a...</FormLabel>
+              <FormLabel>My Role is...</FormLabel>
               <FormControl>
                 <RadioGroup
                   onValueChange={field.onChange}
                   defaultValue={field.value}
                   className="flex space-x-4"
+                  disabled={!!userProfile} // Can't change role after registration
                 >
                   <FormItem className="flex items-center space-x-2 space-y-0">
                     <FormControl>
-                      <RadioGroupItem value="pharmacist" />
+                      <RadioGroupItem value="pharmacy" />
                     </FormControl>
-                    <FormLabel className="font-normal">Pharmacist</FormLabel>
+                    <FormLabel className="font-normal">Pharmacy</FormLabel>
                   </FormItem>
                   <FormItem className="flex items-center space-x-2 space-y-0">
                     <FormControl>
-                      <RadioGroupItem value="assistant" />
+                      <RadioGroupItem value="substitute" />
                     </FormControl>
-                    <FormLabel className="font-normal">Assistant</FormLabel>
+                    <FormLabel className="font-normal">Substitute</FormLabel>
                   </FormItem>
                 </RadioGroup>
               </FormControl>

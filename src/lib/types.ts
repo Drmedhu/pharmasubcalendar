@@ -5,7 +5,7 @@ export type Pharmacy = {
   name: string;
   address: string;
   email: string;
-  userId?: string;
+  userId: string;
 };
 
 export type Shift = {
@@ -17,8 +17,8 @@ export type Shift = {
   payRate: number; // per hour
   status: 'available' | 'booked';
   role: 'pharmacist' | 'assistant';
-  bookedBy?: string; // This should be userProfileId
-  userId?: string;
+  bookedBy?: string | null; // This should be userProfileId
+  userId: string;
 };
 
 export type UserProfile = {
@@ -26,5 +26,5 @@ export type UserProfile = {
     userId: string;
     name: string;
     email: string;
-    role: 'pharmacist' | 'assistant';
+    role: 'pharmacy' | 'substitute';
 };

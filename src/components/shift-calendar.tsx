@@ -3,29 +3,38 @@
 import * as React from 'react';
 import { Calendar } from '@/components/ui/calendar';
 import type { Shift } from '@/lib/types';
-import { DayPicker } from 'react-day-picker';
+import { Timestamp } from 'firebase/firestore';
 
 interface ShiftCalendarProps {
   shifts: Shift[];
   selectedDate: Date | undefined;
   setSelectedDate: (date: Date | undefined) => void;
+  ownUserId?: string; // Optional: To highlight only this user's shifts
 }
 
-export default function ShiftCalendar({ shifts, selectedDate, setSelectedDate }: ShiftCalendarProps) {
-  const availableShiftDays = React.useMemo(() => {
-    return shifts
-      .filter((shift) => shift.status === 'available')
-      .map((shift) => new Date(shift.date as string));
-  }, [shifts]);
+export default function ShiftCalendar({ shifts, selectedDate, setSelectedDate, ownUserId }: ShiftCalendarProps) {
+  
+  const markedDays = React.useMemo(() => {
+    const shiftDays = ownUserId
+        ? shifts.filter(shift => shift.userId === ownUserId)
+        : shifts.filter(shift => shift.status === 'available');
+
+    return shiftDays.map((shift) => {
+        if (shift.date instanceof Timestamp) {
+            return shift.date.toDate();
+        }
+        return new Date(shift.date as string);
+    });
+  }, [shifts, ownUserId]);
 
   const DayContent: React.ComponentType<React.PropsWithChildren<{ date: Date }>> = (props) => {
-    const isAvailable = availableShiftDays.some(
+    const isMarked = markedDays.some(
       (d) => d.toDateString() === props.date.toDateString()
     );
     return (
       <div className="relative flex h-full w-full items-center justify-center">
         <span>{props.date.getDate()}</span>
-        {isAvailable && (
+        {isMarked && (
           <div className="absolute bottom-1 h-1.5 w-1.5 rounded-full bg-primary" />
         )}
       </div>

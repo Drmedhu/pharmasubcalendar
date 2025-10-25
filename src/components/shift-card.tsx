@@ -1,6 +1,6 @@
 "use client";
 
-import type { Shift, Pharmacy } from '@/lib/types';
+import type { Shift, Pharmacy, UserProfile } from '@/lib/types';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,7 +15,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Clock, DollarSign, MapPin, CheckCircle2, UserCircle2 } from 'lucide-react';
+import { Clock, DollarSign, MapPin, CheckCircle2, UserCircle2, Ban } from 'lucide-react';
 import { format } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 
@@ -23,22 +23,36 @@ interface ShiftCardProps {
   shift: Shift;
   pharmacy?: Pharmacy;
   onBookShift: (shiftId: string) => void;
-  isPublicView?: boolean;
+  onCancelBooking: (shiftId: string) => void;
+  currentUserId?: string;
+  userRole: UserProfile['role'];
 }
 
-export default function ShiftCard({ shift, pharmacy, onBookShift, isPublicView = false }: ShiftCardProps) {
+export default function ShiftCard({ shift, pharmacy, onBookShift, onCancelBooking, currentUserId, userRole }: ShiftCardProps) {
   const { toast } = useToast();
 
   const handleConfirmBooking = () => {
     onBookShift(shift.id);
     toast({
       title: 'Shift Booked!',
-      description: `Your booking at ${pharmacy?.name} on ${format(shift.date instanceof Date ? shift.date : (shift.date as Timestamp).toDate(), 'MMM d')} is confirmed.`,
+      description: `Your booking at ${pharmacy?.name} on ${format(shiftDate, 'MMM d')} is confirmed.`,
       action: <CheckCircle2 className="text-green-500" />
     });
   };
+
+  const handleConfirmCancel = () => {
+    onCancelBooking(shift.id);
+    toast({
+        title: 'Booking Cancelled',
+        description: 'The shift is available again.',
+        variant: 'destructive'
+    });
+  }
   
   const shiftDate = shift.date instanceof Date ? shift.date : (shift.date as Timestamp).toDate();
+  const isBookedByCurrentUser = shift.status === 'booked' && shift.bookedBy === currentUserId;
+
+  const canBook = userRole === 'substitute' && shift.status === 'available';
 
   return (
     <div className="flex flex-col gap-4">
@@ -53,7 +67,7 @@ export default function ShiftCard({ shift, pharmacy, onBookShift, isPublicView =
         {shift.status === 'available' ? (
           <Badge variant="outline" className="border-primary text-primary shrink-0">Available</Badge>
         ) : (
-          <Badge variant="secondary" className="bg-booked text-booked-foreground shrink-0 border-transparent">Booked</Badge>
+          <Badge variant="secondary" className="shrink-0">Booked</Badge>
         )}
       </div>
 
@@ -72,7 +86,7 @@ export default function ShiftCard({ shift, pharmacy, onBookShift, isPublicView =
         </div>
       </div>
 
-      {shift.status === 'available' && !isPublicView && (
+      {canBook && (
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button size="sm" className="mt-2">
@@ -103,6 +117,33 @@ export default function ShiftCard({ shift, pharmacy, onBookShift, isPublicView =
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+      )}
+
+      {isBookedByCurrentUser && (
+           <AlertDialog>
+           <AlertDialogTrigger asChild>
+             <Button size="sm" variant="destructive" className="mt-2">
+                <Ban className='mr-2 h-4 w-4' />
+               Cancel Booking
+             </Button>
+           </AlertDialogTrigger>
+           <AlertDialogContent>
+             <AlertDialogHeader>
+               <AlertDialogTitle>Cancel Booking Confirmation</AlertDialogTitle>
+               <AlertDialogDescription asChild>
+                 <div>
+                   Are you sure you want to cancel your booking for this shift? The pharmacy will be notified and the shift will become available again.
+                 </div>
+               </AlertDialogDescription>
+             </AlertDialogHeader>
+             <AlertDialogFooter>
+               <AlertDialogCancel>Keep it</AlertDialogCancel>
+               <AlertDialogAction onClick={handleConfirmCancel}>
+                 Yes, Cancel Booking
+               </AlertDialogAction>
+             </AlertDialogFooter>
+           </AlertDialogContent>
+         </AlertDialog>
       )}
     </div>
   );

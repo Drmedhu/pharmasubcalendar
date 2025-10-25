@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useUser, setDocumentNonBlocking, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, AuthError } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { Briefcase } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { doc } from 'firebase/firestore';
 
 
 const loginSchema = z.object({
@@ -23,8 +25,10 @@ const loginSchema = z.object({
 
 const registerSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
+  name: z.string().min(2, { message: "Name is required."}),
   password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
-  confirmPassword: z.string()
+  confirmPassword: z.string(),
+  role: z.enum(['pharmacy', 'substitute'], { required_error: "You must select a role."}),
 }).refine(data => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -36,6 +40,7 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export default function LoginPage() {
   const auth = useAuth();
+  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
@@ -48,7 +53,7 @@ export default function LoginPage() {
 
   const registerForm = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { email: '', password: '', confirmPassword: '' },
+    defaultValues: { email: '', password: '', confirmPassword: '', name: '', role: 'substitute' },
   });
 
   useEffect(() => {
@@ -76,7 +81,21 @@ export default function LoginPage() {
   const handleRegister = async (values: RegisterFormValues) => {
     try {
         setAuthError(null);
-        await createUserWithEmailAndPassword(auth, values.email, values.password);
+        const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+        const user = userCredential.user;
+
+        if (user && firestore) {
+            const userProfileRef = doc(firestore, 'userProfiles', user.uid);
+            const profileData = {
+                userId: user.uid,
+                email: values.email,
+                name: values.name,
+                role: values.role
+            };
+            // This is a non-blocking write. We proceed without waiting for it to complete.
+            setDocumentNonBlocking(userProfileRef, profileData, { merge: true });
+        }
+        
         // Let the useEffect handle the redirect
     } catch (error) {
         const authError = error as AuthError;
@@ -162,6 +181,49 @@ export default function LoginPage() {
                 <CardContent>
                 <Form {...registerForm}>
                     <form onSubmit={registerForm.handleSubmit(handleRegister)} className="space-y-4">
+                     <FormField
+                        control={registerForm.control}
+                        name="role"
+                        render={({ field }) => (
+                            <FormItem className="space-y-3">
+                            <FormLabel>I am a...</FormLabel>
+                            <FormControl>
+                                <RadioGroup
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                                className="flex space-x-4"
+                                >
+                                <FormItem className="flex items-center space-x-2 space-y-0">
+                                    <FormControl>
+                                    <RadioGroupItem value="pharmacy" />
+                                    </FormControl>
+                                    <FormLabel className="font-normal">Pharmacy</FormLabel>
+                                </FormItem>
+                                <FormItem className="flex items-center space-x-2 space-y-0">
+                                    <FormControl>
+                                    <RadioGroupItem value="substitute" />
+                                    </FormControl>
+                                    <FormLabel className="font-normal">Substitute</FormLabel>
+                                </FormItem>
+                                </RadioGroup>
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                    <FormField
+                        control={registerForm.control}
+                        name="name"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Full Name / Pharmacy Name</FormLabel>
+                            <FormControl>
+                            <Input placeholder="John Doe or City Pharmacy" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
                     <FormField
                         control={registerForm.control}
                         name="email"

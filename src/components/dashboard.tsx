@@ -9,7 +9,7 @@ import { format } from 'date-fns';
 import { Header } from '@/components/header';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, doc, writeBatch, Timestamp, query, where } from 'firebase/firestore';
+import { collection, doc, query, where, Timestamp } from 'firebase/firestore';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { isAdmin } from '@/lib/admin';
 
@@ -27,45 +27,93 @@ export function Dashboard() {
   }, [firestore, user]);
   const { data: userProfile, isLoading: isLoadingUserProfile } = useDoc<UserProfile>(userProfileRef);
 
-  const pharmaciesQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    // Admin sees all, regular user sees their own
-    return userIsAdmin 
-      ? collection(firestore, 'pharmacies')
-      : query(collection(firestore, 'pharmacies'), where('userId', '==', user.uid));
-  }, [firestore, user, userIsAdmin]);
-  const { data: pharmacies, isLoading: isLoadingPharmacies } = useCollection<Pharmacy>(pharmaciesQuery);
-
-  const shiftsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-     // Admin sees all, regular user sees their own
-    return userIsAdmin
-      ? collection(firestore, 'shifts')
-      : query(collection(firestore, 'shifts'), where('userId', '==', user.uid));
-  }, [firestore, user, userIsAdmin]);
-  const { data: shifts, isLoading: isLoadingShifts } = useCollection<Shift>(shiftsQuery);
+  // --- Data Fetching based on Role ---
   
+  // PHARMACY role: fetches only their own pharmacies
+  const pharmacyPharmaciesQuery = useMemoFirebase(() => {
+    if (!firestore || !user || userProfile?.role !== 'pharmacy') return null;
+    return query(collection(firestore, 'pharmacies'), where('userId', '==', user.uid));
+  }, [firestore, user, userProfile]);
+  const { data: pharmacyPharmacies, isLoading: isLoadingPharmacyPharmacies } = useCollection<Pharmacy>(pharmacyPharmaciesQuery);
+
+  // PHARMACY role: fetches only their own shifts
+  const pharmacyShiftsQuery = useMemoFirebase(() => {
+    if (!firestore || !user || userProfile?.role !== 'pharmacy') return null;
+    return query(collection(firestore, 'shifts'), where('userId', '==', user.uid));
+  }, [firestore, user, userProfile]);
+  const { data: pharmacyShifts, isLoading: isLoadingPharmacyShifts } = useCollection<Shift>(pharmacyShiftsQuery);
+  
+  // SUBSTITUTE role: fetches ALL pharmacies to display shift details
+  const substitutePharmaciesQuery = useMemoFirebase(() => {
+    if (!firestore || userProfile?.role !== 'substitute') return null;
+    return collection(firestore, 'pharmacies');
+  }, [firestore, userProfile]);
+  const { data: substitutePharmacies, isLoading: isLoadingSubstitutePharmacies } = useCollection<Pharmacy>(substitutePharmaciesQuery);
+  
+  // SUBSTITUTE role: fetches ALL available or their booked shifts
+  const substituteShiftsQuery = useMemoFirebase(() => {
+    if (!firestore || !user || userProfile?.role !== 'substitute') return null;
+     return query(collection(firestore, 'shifts'), 
+       where('status', '==', 'available')
+     );
+    // This is a simplified query. For seeing their *own* booked shifts, we'd need a compound query.
+    // We will filter client-side for now for simplicity.
+  }, [firestore, user, userProfile]);
+  const { data: substituteShifts, isLoading: isLoadingSubstituteShifts } = useCollection<Shift>(substituteShiftsQuery);
+
+  const { data: myBookedShifts, isLoading: isLoadingMyBookedShifts } = useCollection<Shift>(
+    useMemoFirebase(() => {
+      if (!firestore || !user || userProfile?.role !== 'substitute') return null;
+      return query(collection(firestore, 'shifts'), where('bookedBy', '==', user.uid));
+    }, [firestore, user, userProfile])
+  );
+
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date());
 
-
-  const handleBookShift = (shiftId: string) => {
-    if (!firestore || !user || !userProfile) {
-      toast({
-        variant: "destructive",
-        title: "Profile needed",
-        description: "Please create your user profile before booking a shift.",
+  // --- DERIVED STATE: Determine which data to use based on role ---
+  const isLoading = isLoadingUserProfile || isLoadingPharmacyPharmacies || isLoadingPharmacyShifts || isLoadingSubstitutePharmacies || isLoadingSubstituteShifts || isLoadingMyBookedShifts;
+  
+  const pharmacies = userProfile?.role === 'pharmacy' ? pharmacyPharmacies : substitutePharmacies;
+  
+  const allShiftsForSubstitute = React.useMemo(() => {
+    if (userProfile?.role !== 'substitute') return [];
+    const combined = [...(substituteShifts || [])];
+    const bookedIds = new Set(combined.map(s => s.id));
+    if (myBookedShifts) {
+      myBookedShifts.forEach(s => {
+        if (!bookedIds.has(s.id)) {
+          combined.push(s);
+        }
       });
-      return;
-    };
+    }
+    return combined;
+  }, [substituteShifts, myBookedShifts, userProfile]);
+
+  const shifts = userProfile?.role === 'pharmacy' ? pharmacyShifts : allShiftsForSubstitute;
+
+  // --- Event Handlers ---
+  const handleBookShift = (shiftId: string) => {
+    if (!firestore || !user || userProfile?.role !== 'substitute') return;
     const shiftRef = doc(firestore, 'shifts', shiftId);
     updateDocumentNonBlocking(shiftRef, { 
       status: 'booked',
-      bookedBy: user.uid // Storing user's auth UID
+      bookedBy: user.uid
     });
+    toast({ title: "Shift Booked!", description: "The shift has been added to your calendar."});
   };
-  
+
+  const handleCancelBooking = (shiftId: string) => {
+    if (!firestore || !user || userProfile?.role !== 'substitute') return;
+    const shiftRef = doc(firestore, 'shifts', shiftId);
+    updateDocumentNonBlocking(shiftRef, {
+      status: 'available',
+      bookedBy: null
+    });
+    toast({ title: "Booking Cancelled", description: "The shift is now available again." });
+  };
+
   const handleCreateShift = (newShift: Omit<Shift, 'id' | 'status'>) => {
-    if (!firestore || !user) return;
+    if (!firestore || !user || userProfile?.role !== 'pharmacy') return;
     const shiftsCollection = collection(firestore, 'shifts');
     const { date, ...restOfShift } = newShift;
     const dateAsTimestamp = Timestamp.fromDate(new Date(date));
@@ -78,33 +126,23 @@ export function Dashboard() {
   };
   
   const handleCreatePharmacy = (newPharmacy: Omit<Pharmacy, 'id'>) => {
-     if (!firestore || !user) return { ...newPharmacy, id: '', email: newPharmacy.email || ''};
+     if (!firestore || !user || userProfile?.role !== 'pharmacy') return { ...newPharmacy, id: ''};
     const pharmaciesCollection = collection(firestore, 'pharmacies');
     addDocumentNonBlocking(pharmaciesCollection, {
       ...newPharmacy,
       userId: user.uid,
     });
-    // This return is optimistic. A better approach would be to wait for the doc ID.
     return { ...newPharmacy, id: `ph_${Date.now()}` };
   };
 
   const handleDeletePharmacy = async (pharmacyId: string) => {
-    if (!firestore) return;
-    const batch = writeBatch(firestore);
-    
-    const pharmacyRef = doc(firestore, 'pharmacies', pharmacyId);
-    batch.delete(pharmacyRef);
+    if (!firestore || userProfile?.role !== 'pharmacy') return;
+    const shiftDocsToDelete = await query(collection(firestore, 'shifts'), where('pharmacyId', '==', pharmacyId));
 
-    if (shifts) {
-        shifts.forEach(shift => {
-            if (shift.pharmacyId === pharmacyId) {
-                const shiftRef = doc(firestore, 'shifts', shift.id);
-                batch.delete(shiftRef);
-            }
-        });
-    }
-    
-    await batch.commit();
+    shiftDocsToDelete.docs.forEach(shiftDoc => {
+      deleteDocumentNonBlocking(shiftDoc.ref);
+    });
+    deleteDocumentNonBlocking(doc(firestore, 'pharmacies', pharmacyId));
 
     toast({
         title: 'Pharmacy Deleted',
@@ -135,13 +173,15 @@ export function Dashboard() {
       shift.date.toDateString() === selectedDate.toDateString()
   );
 
-  if (isLoadingPharmacies || isLoadingShifts || isLoadingUserProfile) {
+  if (isLoading || !userProfile) {
     return (
         <div className="flex min-h-screen w-full flex-col items-center justify-center">
             <p>Loading Dashboard...</p>
         </div>
     );
   }
+
+  const isSubstitute = userProfile.role === 'substitute';
 
   return (
     <>
@@ -158,13 +198,18 @@ export function Dashboard() {
           <Card>
             <CardHeader>
               <CardTitle>Shift Calendar</CardTitle>
-              <CardDescription>Select a day to view available shifts. Days with available shifts are marked with a dot.</CardDescription>
+              <CardDescription>
+                {isSubstitute
+                  ? "Select a day to view available shifts. Days with available shifts are marked."
+                  : "Manage your pharmacy's shifts. Days with your shifts are marked."}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <ShiftCalendar
                 shifts={shiftsWithDateObjects}
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
+                ownUserId={isSubstitute ? undefined : user?.uid} // Pass userId only for pharmacies
               />
             </CardContent>
           </Card>
@@ -177,7 +222,9 @@ export function Dashboard() {
                 {selectedDate ? format(selectedDate, 'MMMM d') : '...'}
               </CardTitle>
               <CardDescription>
-                All shifts scheduled for the selected day.
+                {isSubstitute
+                  ? "Shifts you can book or have already booked."
+                  : "All shifts scheduled at your pharmacy for the selected day."}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -185,6 +232,9 @@ export function Dashboard() {
                 shifts={shiftsOnSelectedDate}
                 pharmacies={pharmacies || []}
                 onBookShift={handleBookShift}
+                onCancelBooking={handleCancelBooking}
+                currentUserId={user?.uid}
+                userRole={userProfile.role}
               />
             </CardContent>
           </Card>

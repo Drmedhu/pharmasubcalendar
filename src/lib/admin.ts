@@ -1,9 +1,9 @@
 "use client";
-import type { User } from "firebase/auth";
+import type { UserProfile } from "@/lib/types";
 
 // The email of the admin user.
 export const ADMIN_EMAIL = "erno.santha@drmed.hu";
 
-export const isAdmin = (user: User | null | undefined): boolean => {
-    return user?.email === ADMIN_EMAIL;
+export const isAdmin = (userProfile: UserProfile | null | undefined): boolean => {
+    return userProfile?.email === ADMIN_EMAIL;
 }
