@@ -21,24 +21,21 @@ export default function AdminPage() {
 
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
+    // This is the crucial part: combine loading states.
     const isLoading = isAuthLoading || isProfileLoading;
 
     React.useEffect(() => {
-        // Ne tegyen semmit, amíg az adatok töltődnek.
-        if (isLoading) {
-            return;
-        }
-
-        // A betöltés után, ha a felhasználó nincs bejelentkezve, nincs profilja,
-        // vagy a profilja alapján nem admin, akkor átirányítjuk.
-        if (!user || !userProfile || !isAdmin(userProfile)) {
-            router.push('/');
+        // Only run this effect when loading is complete.
+        if (!isLoading) {
+            // If, after loading, we determine the user is not an admin, redirect.
+            if (!user || !userProfile || !isAdmin(userProfile)) {
+                router.push('/');
+            }
         }
     }, [isLoading, user, userProfile, router]);
 
-
-    // 1. Amíg töltünk, egyértelmű betöltési üzenetet mutatunk.
-    // Ez az egyetlen, ami renderelődik, amíg nem tudjuk a felhasználó státuszát.
+    // 1. Render a loading state until all data is available.
+    // This prevents the "flicker" because we don't try to render the dashboard or deny access prematurely.
     if (isLoading) {
         return (
             <div className="flex min-h-screen w-full flex-col items-center justify-center">
@@ -47,9 +44,8 @@ export default function AdminPage() {
         );
     }
 
-    // 2. A betöltés után, ha a felhasználó admin, megjelenítjük a dashboardot.
-    // Ez az ellenőrzés most már biztonságos, mert `isLoading` értéke hamis,
-    // tehát a `user` és `userProfile` adatok már rendelkezésre állnak.
+    // 2. After loading, if the user is definitely an admin, show the dashboard.
+    // This condition is now safe to check because `isLoading` is false.
     if (user && userProfile && isAdmin(userProfile)) {
         return (
             <div className="flex min-h-screen w-full flex-col">
@@ -61,8 +57,8 @@ export default function AdminPage() {
         );
     }
     
-    // 3. Ha nem töltünk és nem admin (vagy nincs profil), egyértelmű üzenetet mutatunk.
-    // A useEffect kezeli az átirányítást. Ez megakadályozza a dashboard felvillanását.
+    // 3. If loading is done and they are not an admin, show a persistent message.
+    // The useEffect will handle the redirection. This state is shown while the redirect is in progress.
     return (
         <div className="flex min-h-screen w-full flex-col items-center justify-center">
             <p>Access Denied. Redirecting...</p>
