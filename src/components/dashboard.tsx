@@ -22,65 +22,77 @@ export function Dashboard() {
   
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date());
   
-  // 1. Fetch user profile first
+  // Step 1: Fetch user profile first. This is the only query that runs initially.
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return doc(firestore, 'userProfiles', user.uid);
   }, [firestore, user]);
   const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
-  const userIsAdmin = React.useMemo(() => userProfile ? isAdmin(userProfile) : false, [userProfile]);
-  const isPharmacy = userProfile?.role === 'pharmacy';
-  const isSubstitute = userProfile?.role === 'substitute';
+  // Step 2: Determine roles and admin status *after* profile is loaded.
+  const userIsAdmin = React.useMemo(() => {
+    if (isProfileLoading || !userProfile) return false;
+    return isAdmin(userProfile);
+  }, [userProfile, isProfileLoading]);
 
-  // --- DATA FETCHING ---
+  const isPharmacy = !isProfileLoading && userProfile?.role === 'pharmacy';
+  const isSubstitute = !isProfileLoading && userProfile?.role === 'substitute';
+
+  // --- DATA FETCHING (Now dependent on profile loading status) ---
   
-  // -- NON-ADMIN DATA --
-  const nonAdminPharmaciesQuery = useMemoFirebase(() => {
-    if (isProfileLoading || !firestore || !user || userIsAdmin) return null;
-    if (isPharmacy) return query(collection(firestore, 'pharmacies'), where('userId', '==', user.uid));
-    if (isSubstitute) return collection(firestore, 'pharmacies');
-    return null;
-  }, [firestore, user, isProfileLoading, isPharmacy, isSubstitute, userIsAdmin]);
-  const { data: nonAdminPharmacies } = useCollection<Pharmacy>(nonAdminPharmaciesQuery);
-
-  const nonAdminShiftsQuery = useMemoFirebase(() => {
-    if (isProfileLoading || !firestore || !user || userIsAdmin) return null;
-    if (isPharmacy) return query(collection(firestore, 'shifts'), where('userId', '==', user.uid));
-    if (isSubstitute) return collection(firestore, 'shifts');
-    return null;
-  }, [firestore, user, isProfileLoading, isPharmacy, isSubstitute, userIsAdmin]);
-  const { data: nonAdminShifts } = useCollection<Shift>(nonAdminShiftsQuery);
-
   // -- ADMIN DATA --
+  // This query only runs if the user is confirmed to be an admin.
   const adminProfilesQuery = useMemoFirebase(() => {
-      if (!firestore || !userIsAdmin) return null; // Only run if admin
+      if (!firestore || !userIsAdmin) return null;
       return collection(firestore, 'userProfiles');
   }, [firestore, userIsAdmin]);
   const { data: adminProfiles } = useCollection<UserProfile>(adminProfilesQuery);
 
   const adminShiftsQuery = useMemoFirebase(() => {
-      if (!firestore || !userIsAdmin) return null; // Only run if admin
+      if (!firestore || !userIsAdmin) return null;
       return collection(firestore, 'shifts');
   }, [firestore, userIsAdmin]);
   const { data: adminShifts } = useCollection<Shift>(adminShiftsQuery);
 
+
+  // -- NON-ADMIN DATA --
+  const nonAdminPharmaciesQuery = useMemoFirebase(() => {
+    // This query should NOT run for admins. It runs after profile is loaded for non-admins.
+    if (isProfileLoading || !firestore || !user || userIsAdmin) return null;
+    if (isPharmacy) return query(collection(firestore, 'pharmacies'), where('userId', '==', user.uid));
+    if (isSubstitute) return collection(firestore, 'pharmacies'); // Substitutes see all pharmacies
+    return null;
+  }, [firestore, user, isProfileLoading, isPharmacy, isSubstitute, userIsAdmin]);
+  const { data: nonAdminPharmacies } = useCollection<Pharmacy>(nonAdminPharmaciesQuery);
+
+  const nonAdminShiftsQuery = useMemoFirebase(() => {
+    // This query should NOT run for admins.
+    if (isProfileLoading || !firestore || !user || userIsAdmin) return null;
+    if (isPharmacy) return query(collection(firestore, 'shifts'), where('userId', '==', user.uid));
+    if (isSubstitute) return collection(firestore, 'shifts'); // Substitutes see all shifts
+    return null;
+  }, [firestore, user, isProfileLoading, isPharmacy, isSubstitute, userIsAdmin]);
+  const { data: nonAdminShifts } = useCollection<Shift>(nonAdminShiftsQuery);
+
+
   // --- DERIVED STATE & MEMOS ---
 
+  // The main dashboard loading is only dependent on auth and the user's own profile.
   const isDashboardLoading = isAuthLoading || isProfileLoading;
 
   const allData = React.useMemo(() => {
     if (userIsAdmin) {
       return {
-        pharmacies: [], // Admin doesn't manage their own pharmacies in this view
+        pharmacies: [], // Admins don't manage their own pharmacies in the main view
         shifts: adminShifts,
         profiles: adminProfiles,
       };
     }
+    // For non-admins
     return {
       pharmacies: nonAdminPharmacies,
       shifts: nonAdminShifts,
-      profiles: null,
+      profiles: null, // Non-admins don't get the full list
     };
   }, [userIsAdmin, adminProfiles, adminShifts, nonAdminPharmacies, nonAdminShifts]);
 

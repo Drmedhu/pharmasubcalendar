@@ -93,7 +93,8 @@ export default function LoginPage() {
                 userId: newUser.uid,
                 email: values.email,
                 name: values.name,
-                role: values.role
+                role: values.role,
+                id: newUser.uid,
             };
             // Use await to ensure profile is created before any potential redirect or state change
             await setDoc(userProfileRef, profileData);
