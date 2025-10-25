@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useAuth, useUser, setDocumentNonBlocking, useFirestore } from '@/firebase';
+import { useAuth, useUser, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -95,7 +95,7 @@ export default function LoginPage() {
                 role: values.role
             };
             // Use await here to ensure profile is created before redirecting
-            await setDoc(userProfileRef, profileData, { merge: true });
+            await setDoc(userProfileRef, profileData);
         }
         
         // Let the useEffect handle the redirect. It will trigger once the `user` object from `useUser` is updated.

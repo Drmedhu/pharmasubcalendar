@@ -63,7 +63,7 @@ export function Dashboard() {
   // Determine final loading state based on role
   const isLoadingData = React.useMemo(() => {
     if (isLoadingUserProfile) return true; // Still loading profile
-    if (!userProfile) return false; // Profile loaded, but it's null (shouldn't happen if redirected correctly)
+    if (!userProfile) return false; // Profile loaded, but it's null (this will be handled by the error display)
 
     if (isPharmacy) {
       return isLoadingPharmacyPharmacies || isLoadingPharmacyShifts;
@@ -161,7 +161,7 @@ export function Dashboard() {
       shift.date.toDateString() === selectedDate.toDateString()
   );
 
-  if (isLoadingData) {
+  if (isLoadingUserProfile || isLoadingData) {
     return (
         <div className="flex min-h-screen w-full flex-col items-center justify-center">
             <p>Loading Dashboard...</p>
@@ -204,7 +204,7 @@ export function Dashboard() {
                 shifts={shiftsWithDateObjects}
                 selectedDate={selectedDate}
                 setSelectedDate={setSelectedDate}
-                ownUserId={isSubstitute ? undefined : user?.uid} // Pass userId only for pharmacies
+                ownUserId={isSubstitute ? undefined : user?.uid}
               />
             </CardContent>
           </Card>
