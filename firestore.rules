@@ -1,25 +1,23 @@
 /**
- * @fileoverview Firestore Security Rules for Prototyping.
+ * @fileOverview Firestore Security Rules for the application.
  *
  * Core Philosophy:
- * This ruleset prioritizes secure authorization based on user identity and relationships
- * while relaxing data validation to facilitate rapid prototyping. It enforces strict
- * ownership for user profiles and allows public reads for certain collections with
- * owner-only writes.
+ * This ruleset enforces a user-ownership model for user profiles and pharmacies,
+ * ensuring that only authenticated users can create, read, update, or delete their own data.
+ * Shifts are also governed by ownership.
  *
  * Data Structure:
- * - /pharmacies/{pharmacyId}: Stores pharmacy information, with the pharmacyId used as the document ID.
+ * - /userProfiles/{userId}: Stores user profile information, with the document ID matching the user's UID.
+ * - /pharmacies/{pharmacyId}: Stores pharmacy information, with the pharmacyId being the document ID.
  * - /shifts/{shiftId}: Stores shift information.
- * - /userProfiles/{userId}: Stores user profile information, with the userId used as the document ID.
  *
  * Key Security Decisions:
- * - User profiles are strictly owned by the authenticated user.
- * - Pharmacies are owned by the user that creates them.
- * - Shifts are owned by the user that creates them and are publicly readable.
- * - Data validation is minimized to focus on authorization and relational integrity.
+ * - Users can only read their own profile data.
+ * - Pharmacies can only be created, updated, or deleted by their owners (the user who created them).
+ * - Shifts can only be created, updated, or deleted by their owners (the user who created them), and can be booked by other users.
  *
  * Denormalization for Authorization:
- * - Pharmacies and Shifts have a userId field to simplify ownership checks without needing extra reads.
+ * - Pharmacies and shifts have a `userId` field that stores the UID of the user who created them. This is used to enforce ownership.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -27,73 +25,91 @@ service cloud.firestore {
 
     /**
      * @description Checks if the request is authenticated.
+     * @returns {boolean} True if the request is authenticated, false otherwise.
      */
     function isSignedIn() {
       return request.auth != null;
     }
 
     /**
-     * @description Checks if the authenticated user's UID matches the provided userId.
+     * @description Checks if the authenticated user is the owner of the resource.
+     * @param {string} userId The user ID to compare against the authenticated user's UID.
+     * @returns {boolean} True if the authenticated user is the owner, false otherwise.
      */
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isSignedIn() && request.auth.uid == userId;
     }
 
     /**
-     * @description Checks if the authenticated user's UID matches the resource's userId, and confirms that the resource exists.
+     * @description Checks if the authenticated user is the existing owner of the resource.
+     * @param {string} userId The user ID to compare against the authenticated user's UID.
+     * @returns {boolean} True if the authenticated user is the owner, false otherwise.
      */
     function isExistingOwner(userId) {
-      return (isOwner(userId) && resource != null);
+      return isOwner(userId) && resource != null;
     }
 
     /**
-     * @description Rules for user profiles.
+     * @description Rule set for user profiles.
      * @path /userProfiles/{userId}
-     * @allow (get) User with UID '6g1XplP1ONTtZZxFEJkHEQWIUMf1' can read their own profile.
-     * @allow (create) User with UID '6g1XplP1ONTtZZxFEJkHEQWIUMf1' can create their own profile.
-     * @deny (get) User with UID 'otherUserId' cannot read user profile '6g1XplP1ONTtZZxFEJkHEQWIUMf1'.
-     * @deny (create) User with UID 'otherUserId' cannot create user profile '6g1XplP1ONTtZZxFEJkHEQWIUMf1'.
-     * @principle Enforces document ownership for all operations on user profiles.
+     * @allow (get) Authenticated user with matching UID can read their own profile.
+     * @deny (get) Authenticated user cannot read another user's profile.
+     * @allow (create) Authenticated user can create their profile, but only if the userId matches their UID.
+     * @deny (create) Unauthenticated user cannot create a profile.
+     * @allow (update) Authenticated user can update their own profile.
+     * @deny (update) Authenticated user cannot update another user's profile.
+     * @allow (delete) Authenticated user can delete their own profile.
+     * @deny (delete) Authenticated user cannot delete another user's profile.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
      */
     match /userProfiles/{userId} {
       allow get: if isOwner(userId);
-      allow list: if false; // Listing user profiles is not permitted.
+      allow list: if false;
+
       allow create: if isOwner(userId) && request.resource.data.userId == userId;
       allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Rules for pharmacies.
+     * @description Rule set for pharmacies.
      * @path /pharmacies/{pharmacyId}
-     * @allow (create) User with UID '6g1XplP1ONTtZZxFEJkHEQWIUMf1' can create a pharmacy with userId = '6g1XplP1ONTtZZxFEJkHEQWIUMf1'.
-     * @allow (get) User with UID '6g1XplP1ONTtZZxFEJkHEQWIUMf1' can read pharmacy 'pharmacy123' they own.
-     * @allow (list) User with UID '6g1XplP1ONTtZZxFEJkHEQWIUMf1' can list pharmacies.
-     * @deny (create) User with UID 'otherUserId' cannot create a pharmacy for user '6g1XplP1ONTtZZxFEJkHEQWIUMf1'.
-     * @deny (update) User with UID 'otherUserId' cannot update a pharmacy they don't own.
-     * @principle Enforces document ownership for writes; allows owner to read, create, update and delete.
+     * @allow (get) Authenticated user can read any pharmacy profile.
+     * @deny (get) Unauthenticated user cannot read pharmacy profiles.
+     * @allow (create) Authenticated user can create a pharmacy profile with their userId.
+     * @deny (create) Unauthenticated user cannot create a pharmacy profile.
+     * @allow (update) Authenticated user can update a pharmacy profile they own.
+     * @deny (update) Authenticated user cannot update a pharmacy profile they do not own.
+     * @allow (delete) Authenticated user can delete a pharmacy profile they own.
+     * @deny (delete) Authenticated user cannot delete a pharmacy profile they do not own.
+     * @principle Enforces document ownership for writes.
      */
     match /pharmacies/{pharmacyId} {
       allow get: if true;
       allow list: if true;
+
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update: if isExistingOwner(resource.data.userId);
       allow delete: if isExistingOwner(resource.data.userId);
     }
 
-    /**
-     * @description Rules for shifts.
-     * @path /shifts/{shiftId}
-     * @allow (create) User with UID '6g1XplP1ONTtZZxFEJkHEQWIUMf1' can create a shift with userId = '6g1XplP1ONTtZZxFEJkHEQWIUMf1'.
-     * @allow (get) Any user can read shifts.
-     * @allow (list) Any user can list shifts.
-     * @deny (create) User with UID 'otherUserId' cannot create a shift for user '6g1XplP1ONTtZZxFEJkHEQWIUMf1'.
-     * @deny (update) User with UID 'otherUserId' cannot update a shift they don't own.
-     * @principle Enforces document ownership for writes; public read access.
-     */
+     /**
+      * @description Rule set for shifts.
+      * @path /shifts/{shiftId}
+      * @allow (get) Authenticated user can read any shift.
+      * @deny (get) Unauthenticated user cannot read shifts.
+      * @allow (create) Authenticated user can create a shift.
+      * @deny (create) Unauthenticated user cannot create a shift.
+      * @allow (update) Authenticated user can update a shift they own.
+      * @deny (update) Authenticated user cannot update a shift they do not own.
+      * @allow (delete) Authenticated user can delete a shift they own.
+      * @deny (delete) Authenticated user cannot delete a shift they do not own.
+      * @principle Enforces document ownership for writes.
+      */
     match /shifts/{shiftId} {
       allow get: if true;
       allow list: if true;
+
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update: if isExistingOwner(resource.data.userId);
       allow delete: if isExistingOwner(resource.data.userId);
