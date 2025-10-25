@@ -107,7 +107,7 @@
             },
             "role": {
                 "type": "string",
-                "enum": ["pharmacist", "assistant"]
+                "enum": ["pharmacist", "substitute"]
             }
         },
         "required": ["userId", "name", "email", "role"]
@@ -119,37 +119,23 @@
     ]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/pharmacies/{pharmacyId}",
-        "definition": {
-          "entityName": "Pharmacy",
-          "schema": {
+    "/pharmacies/{pharmacyId}": {
+        "schema": {
             "$ref": "#/entities/Pharmacy"
-          },
-          "description": "Stores pharmacy information. Each document represents a pharmacy. The 'pharmacyId' is used as the document ID."
-        }
-      },
-      {
-        "path": "/shifts/{shiftId}",
-        "definition": {
-          "entityName": "Shift",
-          "schema": {
+        },
+        "description": "Stores pharmacy information. Each document represents a pharmacy. The 'pharmacyId' is used as the document ID."
+    },
+    "/shifts/{shiftId}": {
+        "schema": {
             "$ref": "#/entities/Shift"
-          },
-          "description": "Stores shift information."
-        }
-      },
-      {
-        "path": "/userProfiles/{userId}",
-        "definition": {
-            "entityName": "UserProfile",
-            "schema": {
-                "$ref": "#/entities/UserProfile"
-            },
-            "description": "Stores user profile information. The document ID is the user's auth UID."
-        }
-      }
-    ]
+        },
+        "description": "Stores shift information."
+    },
+    "/userProfiles/{userId}": {
+        "schema": {
+            "$ref": "#/entities/UserProfile"
+        },
+        "description": "Stores user profile information. The document ID is the user's auth UID."
+    }
   }
 }
