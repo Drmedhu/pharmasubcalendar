@@ -4,144 +4,230 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "UserProfile",
       "type": "object",
-      "description": "Represents a user profile in the PharmaSub Calendar application.",
+      "description": "Represents a user profile in the system, whether they are a pharmacy representative or a substitute pharmacist.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the UserProfile entity."
+          "description": "Unique identifier for the user profile."
         },
         "email": {
           "type": "string",
-          "description": "User's email address.",
+          "description": "Email address of the user.",
           "format": "email"
         },
-        "name": {
+        "userType": {
           "type": "string",
-          "description": "User's full name."
+          "description": "Type of user: 'pharmacy' or 'substitute'."
         },
-        "role": {
+        "pharmacyId": {
           "type": "string",
-          "description": "The role of the user, e.g., 'pharmacy', 'substitute'."
+          "description": "Reference to Pharmacy. Only applicable if userType is 'pharmacy'. (Relationship: UserProfile 1:1 Pharmacy)"
+        },
+        "firstName": {
+          "type": "string",
+          "description": "First name of the user."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "Last name of the user."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "Phone number of the user."
         }
       },
       "required": [
         "id",
         "email",
-        "name",
-        "role"
+        "userType"
       ]
     },
     "Pharmacy": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Pharmacy",
       "type": "object",
-      "description": "Represents a pharmacy in the PharmaSub Calendar application.",
+      "description": "Represents a pharmacy that posts available shifts.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the Pharmacy entity."
+          "description": "Unique identifier for the pharmacy."
         },
         "name": {
           "type": "string",
-          "description": "Pharmacy name."
+          "description": "Name of the pharmacy."
         },
         "address": {
           "type": "string",
-          "description": "Pharmacy address."
+          "description": "Address of the pharmacy."
         },
-        "email": {
+        "contactPerson": {
           "type": "string",
-          "description": "Pharmacy contact email."
+          "description": "Contact person at the pharmacy."
         },
-        "userId": {
+        "contactEmail": {
           "type": "string",
-          "description": "Reference to the UserProfile who owns this pharmacy."
+          "description": "Contact email address of the pharmacy.",
+          "format": "email"
+        },
+        "contactPhone": {
+          "type": "string",
+          "description": "Contact phone number of the pharmacy."
         }
       },
       "required": [
         "id",
-        "name",
-        "address",
-        "email",
-        "userId"
+        "name"
       ]
     },
     "Shift": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Shift",
       "type": "object",
-      "description": "Represents a shift posted by a pharmacy.",
+      "description": "Represents a shift that a pharmacy needs a substitute for.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the Shift entity."
+          "description": "Unique identifier for the shift."
         },
-        "userId": {
+        "pharmacyId": {
           "type": "string",
-          "description": "Reference to the UserProfile (pharmacy) posting the shift."
-        },
-        "date": {
-          "type": "string",
-          "description": "Shift date.",
-          "format": "date-time"
+          "description": "Reference to Pharmacy. (Relationship: Pharmacy 1:N Shift)"
         },
         "startTime": {
           "type": "string",
-          "description": "Shift start time."
+          "description": "Start time of the shift.",
+          "format": "date-time"
         },
         "endTime": {
           "type": "string",
-          "description": "Shift end time."
+          "description": "End time of the shift.",
+          "format": "date-time"
         },
         "payRate": {
           "type": "number",
           "description": "Pay rate for the shift."
         },
+        "substituteId": {
+          "type": "string",
+          "description": "Reference to UserProfile of the substitute pharmacist who has booked the shift. Null if the shift is not booked. (Relationship: UserProfile 1:N Shift)"
+        },
         "status": {
           "type": "string",
-          "description": "Indicates whether the shift is 'available' or 'booked'."
-        },
-        "role": {
-          "type": "string",
-          "description": "The role required for the shift, e.g., 'pharmacist' or 'assistant'."
-        },
-        "bookedBy": {
-          "type": "string",
-          "description": "Reference to UserProfile of the substitute pharmacist who booked the shift."
+          "description": "Status of the shift: 'available', 'booked', 'completed', 'canceled'."
         }
       },
       "required": [
         "id",
-        "userId",
-        "date",
+        "pharmacyId",
         "startTime",
         "endTime",
         "payRate",
-        "status",
-        "role"
+        "status"
+      ]
+    },
+    "SubstituteAvailability": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SubstituteAvailability",
+      "type": "object",
+      "description": "Represents the general availability of a substitute pharmacist.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the availability record."
+        },
+        "substituteId": {
+          "type": "string",
+          "description": "Reference to UserProfile. (Relationship: UserProfile 1:N SubstituteAvailability)"
+        },
+        "dayOfWeek": {
+          "type": "string",
+          "description": "Day of the week the substitute is available (e.g., 'Monday', 'Tuesday')."
+        },
+        "startTime": {
+          "type": "string",
+          "description": "Start time of availability on that day.",
+          "format": "date-time"
+        },
+        "endTime": {
+          "type": "string",
+          "description": "End time of availability on that day.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "substituteId",
+        "dayOfWeek",
+        "startTime",
+        "endTime"
       ]
     }
   },
   "auth": {
     "providers": [
-      "password"
+      "password",
+      "anonymous"
     ]
   },
   "firestore": {
-    "collections": {
-      "userProfiles": {
-        "schema": "UserProfile",
-        "description": "Stores user profile information."
+    "structure": [
+      {
+        "path": "/users/{userId}/profile",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Stores user profile information. Accessible only by the authenticated user. The document ID is 'profile'.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            }
+          ]
+        }
       },
-      "pharmacies": {
-        "schema": "Pharmacy",
-        "description": "Stores pharmacy information."
+      {
+        "path": "/users/{pharmacyId}/shifts/{shiftId}",
+        "definition": {
+          "entityName": "Shift",
+          "schema": {
+            "$ref": "#/backend/entities/Shift"
+          },
+          "description": "Stores shifts posted by a pharmacy. Accessible only by the pharmacy that owns the shift.",
+          "params": [
+            {
+              "name": "pharmacyId",
+              "description": "The unique identifier of the pharmacy posting the shift."
+            },
+            {
+              "name": "shiftId",
+              "description": "The unique identifier of the shift."
+            }
+          ]
+        }
       },
-      "shifts": {
-        "schema": "Shift",
-        "description": "Stores shift information for all pharmacies."
+      {
+        "path": "/users/{substituteId}/availability/{availabilityId}",
+        "definition": {
+          "entityName": "SubstituteAvailability",
+          "schema": {
+            "$ref": "#/backend/entities/SubstituteAvailability"
+          },
+          "description": "Stores the availability of a substitute pharmacist. Accessible only by the substitute.",
+          "params": [
+            {
+              "name": "substituteId",
+              "description": "The unique identifier of the substitute pharmacist."
+            },
+            {
+              "name": "availabilityId",
+              "description": "The unique identifier for the availability record."
+            }
+          ]
+        }
       }
-    }
+    ],
+    "reasoning": "The error indicates a permission issue when listing documents in the `userProfiles` collection. To address this, and to adhere to the core design principles, the following structure is recommended:\n\n1.  **Authorization Independence:** User profiles are now stored under `/users/{userId}/profile` instead of the root collection `userProfiles`. This allows direct path-based ownership, avoiding the need for `get()` calls in security rules to determine ownership. The `profile` document will contain all user profile data.\n\n2.  **Structural Segregation:** All documents within the `/users/{userId}/profile` collection share the same security posture: only the authenticated user can read/write their profile data.\n\n3.  **Access Modeling:** The structure utilizes path-based ownership (`/users/{userId}/profile`), a best practice for private user data. This makes security rules straightforward. Shifts are stored under the pharmacy's user document, allowing clear ownership.\n\n4.  **QAPs (Rules are not Filters):** The shift listing is secure because shifts are accessed through path-based ownership (`/users/{pharmacyId}/shifts/{shiftId}`), ensuring only the pharmacy owner can list their own shifts. User profiles are private and only accessible to the authenticated user.\n\n5.  **Invariants:** Ownership of shifts is inherently enforced by their location under the pharmacy's user document. Timestamps can be added to the Shift object if needed, and rules can enforce their immutability after creation.\n\nThis structure ensures that listing operations are secure and efficient, aligning with the principle that rules are not filters. The shift towards path-based ownership greatly simplifies the security rules and eliminates the root cause of the `FirestorePermissionError`."
   }
 }
-    
