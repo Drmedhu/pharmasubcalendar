@@ -57,34 +57,42 @@ export default function UserManagementTab({ profiles }: UserManagementTabProps) 
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {profiles.map((profile) => (
-                            <TableRow key={profile.id}>
-                                <TableCell>{profile.name}</TableCell>
-                                <TableCell>{profile.email}</TableCell>
-                                <TableCell className="capitalize">{profile.role}</TableCell>
-                                <TableCell>
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <Button variant="destructive" size="sm">Delete</Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    This action cannot be undone. This will permanently delete the user profile for {profile.name}.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleDeleteUser(profile.id)}>
-                                                    Delete
-                                                </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
+                         {profiles.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={4} className="h-24 text-center">
+                                    No users found.
                                 </TableCell>
                             </TableRow>
-                        ))}
+                        ) : (
+                            profiles.map((profile) => (
+                                <TableRow key={profile.id}>
+                                    <TableCell>{profile.name}</TableCell>
+                                    <TableCell>{profile.email}</TableCell>
+                                    <TableCell className="capitalize">{profile.role}</TableCell>
+                                    <TableCell>
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="destructive" size="sm">Delete</Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        This action cannot be undone. This will permanently delete the user profile for {profile.name}.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDeleteUser(profile.id)}>
+                                                        Delete
+                                                    </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        )}
                     </TableBody>
                 </Table>
             </CardContent>

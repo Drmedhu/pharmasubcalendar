@@ -41,30 +41,38 @@ export default function ShiftManagementTab({ shifts, profiles, onCancelBooking }
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {shifts.map((shift) => (
-                            <TableRow key={shift.id}>
-                                <TableCell>{format(shift.date instanceof Timestamp ? shift.date.toDate() : new Date(shift.date as string), 'yyyy-MM-dd')}</TableCell>
-                                <TableCell>{shift.startTime} - {shift.endTime}</TableCell>
-                                <TableCell className="capitalize">{shift.role}</TableCell>
-                                <TableCell>
-                                    <Badge variant={shift.status === 'booked' ? 'secondary' : 'outline'}>
-                                        {shift.status}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell>{shift.status === 'booked' ? getBookedByName(shift.bookedBy) : 'N/A'}</TableCell>
-                                <TableCell>
-                                    {shift.status === 'booked' && (
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => onCancelBooking(shift.id)}
-                                        >
-                                            Cancel Booking
-                                        </Button>
-                                    )}
+                        {shifts.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={6} className="h-24 text-center">
+                                    No shifts found.
                                 </TableCell>
                             </TableRow>
-                        ))}
+                        ) : (
+                            shifts.map((shift) => (
+                                <TableRow key={shift.id}>
+                                    <TableCell>{format(shift.date instanceof Timestamp ? shift.date.toDate() : new Date(shift.date as string), 'yyyy-MM-dd')}</TableCell>
+                                    <TableCell>{shift.startTime} - {shift.endTime}</TableCell>
+                                    <TableCell className="capitalize">{shift.role}</TableCell>
+                                    <TableCell>
+                                        <Badge variant={shift.status === 'booked' ? 'secondary' : 'outline'}>
+                                            {shift.status}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell>{shift.status === 'booked' ? getBookedByName(shift.bookedBy) : 'N/A'}</TableCell>
+                                    <TableCell>
+                                        {shift.status === 'booked' && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => onCancelBooking(shift.id)}
+                                            >
+                                                Cancel Booking
+                                            </Button>
+                                        )}
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        )}
                     </TableBody>
                 </Table>
             </CardContent>
