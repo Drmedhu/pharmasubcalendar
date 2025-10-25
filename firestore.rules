@@ -63,8 +63,8 @@ service cloud.firestore {
       allow list: if true;
 
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && get(/databases/$(database)/documents/pharmacies/$(pharmacyId)).data.userId == request.auth.uid;
-      allow delete: if isSignedIn() && get(/databases/$(database)/documents/pharmacies/$(pharmacyId)).data.userId == request.auth.uid;
+      allow update: if isSignedIn() && isPharmacyOwner(pharmacyId);
+      allow delete: if isSignedIn() && isPharmacyOwner(pharmacyId);
     }
 
     /**
@@ -95,7 +95,20 @@ service cloud.firestore {
     }
 
     function isPharmacyOwnerForShift() {
-        return get(/databases/$(database)/documents/pharmacies/$(request.resource.data.pharmacyId)).data.userId == request.auth.uid;
+        let pharmacyId = request.resource.data.pharmacyId;
+        return exists(/databases/$(database)/documents/pharmacies/$(pharmacyId)) && get(/databases/$(database)/documents/pharmacies/$(pharmacyId)).data.userId == request.auth.uid;
+    }
+
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    function isPharmacyOwner(pharmacyId) {
+        return exists(/databases/$(database)/documents/pharmacies/$(pharmacyId)) && get(/databases/$(database)/documents/pharmacies/$(pharmacyId)).data.userId == request.auth.uid;
+    }
+
+    function isShiftOwner(shiftId) {
+      return get(/databases/$(database)/documents/shifts/$(shiftId)).data.userId == request.auth.uid;
     }
   }
 }
