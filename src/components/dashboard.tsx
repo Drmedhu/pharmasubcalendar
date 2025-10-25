@@ -14,46 +14,25 @@ import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlo
 import { isAdmin } from '@/lib/admin';
 
 export function Dashboard() {
-  const { user } = useUser();
+  const { user, isUserLoading: isAuthLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
   
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date());
-  const [isCreatingProfile, setIsCreatingProfile] = React.useState(false);
 
-  // 1. Fetch User Profile First
+  // 1. Fetch User Profile First, it will drive all other queries.
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return doc(firestore, 'userProfiles', user.uid);
   }, [firestore, user]);
-  const { data: userProfile, isLoading: isLoadingUserProfile } = useDoc<UserProfile>(userProfileRef);
 
-  // --- Self-healing: Create profile if it doesn't exist ---
-  React.useEffect(() => {
-    // Check if loading is finished, a user is logged in, but there's no profile data, and we're not already creating one.
-    if (!isLoadingUserProfile && user && !userProfile && !isCreatingProfile && firestore) {
-      console.log("User profile not found, creating one...");
-      setIsCreatingProfile(true);
-      const newUserProfile: Omit<UserProfile, 'id'> = {
-        userId: user.uid,
-        email: user.email || 'no-email@example.com',
-        name: user.displayName || 'New User',
-        role: 'substitute', // Default role
-      };
-      // Use setDocumentNonBlocking and let the real-time listener (useDoc) handle the UI update.
-      setDocumentNonBlocking(doc(firestore, 'userProfiles', user.uid), newUserProfile, { merge: false });
-      console.log("Profile creation initiated.");
-      // No need to set isCreatingProfile to false here, the re-render from useDoc will handle it
-    }
-  }, [isLoadingUserProfile, user, userProfile, isCreatingProfile, firestore, toast]);
-
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
   // --- DERIVED STATE ---
   const isPharmacy = userProfile?.role === 'pharmacy';
   const isSubstitute = userProfile?.role === 'substitute';
 
-  // --- QUERIES ---
-  // Data fetching will only run if the precedent data (userProfile) is loaded.
+  // --- QUERIES (conditionally enabled) ---
   
   // PHARMACY role queries
   const pharmacyPharmaciesQuery = useMemoFirebase(() => {
@@ -82,10 +61,10 @@ export function Dashboard() {
   const { data: substituteShifts, isLoading: isLoadingSubstituteShifts } = useCollection<Shift>(substituteShiftsQuery);
 
 
-  // Determine final loading state based on role
-  const isLoadingData = React.useMemo(() => {
-    if (isLoadingUserProfile) return true; // Still loading profile is the base case
-    if (!userProfile) return true; // If profile doesn't exist yet (or is being created), we are loading
+  // Determine final loading state based on auth, profile, and role-specific data.
+  const isLoading = React.useMemo(() => {
+    if (isAuthLoading || isProfileLoading) return true;
+    if (!userProfile) return true; // Profile is essential, if it's not loaded, we are loading.
 
     if (isPharmacy) {
       return isLoadingPharmacyPharmacies || isLoadingPharmacyShifts;
@@ -93,18 +72,12 @@ export function Dashboard() {
     if (isSubstitute) {
       return isLoadingSubstitutePharmacies || isLoadingSubstituteShifts;
     }
-    return false; // Default to not loading if role is unknown
-  }, [isLoadingUserProfile, userProfile, isPharmacy, isSubstitute, isLoadingPharmacyPharmacies, isLoadingPharmacyShifts, isLoadingSubstitutePharmacies, isLoadingSubstituteShifts]);
+    return false; // Default case
+  }, [isAuthLoading, isProfileLoading, userProfile, isPharmacy, isSubstitute, isLoadingPharmacyPharmacies, isLoadingPharmacyShifts, isLoadingSubstitutePharmacies, isLoadingSubstituteShifts]);
 
-  // --- DERIVED STATE: Determine which data to use based on role ---
+  // --- DERIVED DATA: Determine which data to use based on role ---
   const pharmacies = isPharmacy ? pharmacyPharmacies : substitutePharmacies;
-  
-  const allShiftsForSubstitute = React.useMemo(() => {
-    if (!isSubstitute || !substituteShifts || !user) return [];
-    return substituteShifts.filter(shift => shift.status === 'available' || shift.bookedBy === user.uid);
-  }, [substituteShifts, isSubstitute, user]);
-
-  const shifts = isPharmacy ? pharmacyShifts : allShiftsForSubstitute;
+  const shifts = isPharmacy ? pharmacyShifts : substituteShifts;
 
   // --- Event Handlers ---
   const handleBookShift = (shiftId: string) => {
@@ -183,28 +156,18 @@ export function Dashboard() {
       shift.date.toDateString() === selectedDate.toDateString()
   );
 
-  if (isLoadingData) {
-    let loadingMessage = "Loading Dashboard...";
-    if (isCreatingProfile) {
-        loadingMessage = "Profile not found. Creating one for you...";
-    } else if (isLoadingUserProfile) {
-        loadingMessage = "Loading user profile...";
-    } else if (!userProfile) {
-        loadingMessage = "Waiting for profile data...";
-    }
-
+  if (isLoading) {
     return (
         <div className="flex min-h-screen w-full flex-col items-center justify-center">
-            <p>{loadingMessage}</p>
+            <p>Loading Dashboard...</p>
         </div>
     );
   }
   
-  // After loading, if there's still no profile, it's a persistent error state.
   if (!userProfile) {
     return (
       <div className="flex min-h-screen w-full flex-col items-center justify-center">
-        <p className='text-destructive'>Error: Could not load or create user profile. Please refresh and try again.</p>
+        <p className='text-destructive'>Error: Could not load user profile. Please try logging out and back in.</p>
       </div>
     )
   }
