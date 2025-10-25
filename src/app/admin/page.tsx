@@ -21,20 +21,20 @@ export default function AdminPage() {
 
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
-    // Combine loading states
     const isLoading = isAuthLoading || isProfileLoading;
 
+    // After loading, if the user is definitely not an admin, they should be redirected.
+    // This effect is now more robust.
     React.useEffect(() => {
-        // Only run logic when loading is complete
         if (!isLoading) {
-            // If there's no user, or the profile doesn't exist, or the user is not an admin, redirect.
             if (!user || !userProfile || !isAdmin(userProfile)) {
                 router.push('/');
             }
         }
     }, [isLoading, user, userProfile, router]);
 
-    // 1. While loading, show a clear loading indicator.
+
+    // 1. While loading, show a clear loading indicator. This is the only thing rendered until we know the user's status.
     if (isLoading) {
         return (
             <div className="flex min-h-screen w-full flex-col items-center justify-center">
@@ -44,7 +44,6 @@ export default function AdminPage() {
     }
 
     // 2. After loading, if the user is an admin, show the dashboard.
-    // The useEffect above will handle redirection for non-admins, so we just need to check for admin status here.
     if (userProfile && isAdmin(userProfile)) {
         return (
             <div className="flex min-h-screen w-full flex-col">
@@ -56,8 +55,8 @@ export default function AdminPage() {
         );
     }
     
-    // 3. If not loading and not an admin, show a redirecting message.
-    // This state will be briefly visible before the useEffect kicks in.
+    // 3. If not loading and not an admin (or no profile), show a clear message.
+    // The useEffect will handle the redirection. This prevents the dashboard from ever flashing.
     return (
         <div className="flex min-h-screen w-full flex-col items-center justify-center">
             <p>Access Denied. Redirecting...</p>
