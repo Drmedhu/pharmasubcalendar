@@ -18,6 +18,8 @@ export function Dashboard() {
   const firestore = useFirestore();
   const { toast } = useToast();
   
+  const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date());
+
   // 1. Fetch User Profile First
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -57,12 +59,18 @@ export function Dashboard() {
   }, [firestore, isSubstitute]);
   const { data: substituteShifts, isLoading: isLoadingSubstituteShifts } = useCollection<Shift>(substituteShiftsQuery);
 
-  const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(new Date());
 
-  // Determine final loading state
-  const isLoadingData = 
-    (isPharmacy && (isLoadingPharmacyPharmacies || isLoadingPharmacyShifts)) ||
-    (isSubstitute && (isLoadingSubstitutePharmacies || isLoadingSubstituteShifts));
+  // Determine final loading state based on role
+  const isLoadingData = React.useMemo(() => {
+    if (!userProfile) return false; // Not loading data if profile isn't even loaded
+    if (isPharmacy) {
+      return isLoadingPharmacyPharmacies || isLoadingPharmacyShifts;
+    }
+    if (isSubstitute) {
+      return isLoadingSubstitutePharmacies || isLoadingSubstituteShifts;
+    }
+    return false; // Default to not loading if role is unknown
+  }, [isPharmacy, isSubstitute, isLoadingPharmacyPharmacies, isLoadingPharmacyShifts, isLoadingSubstitutePharmacies, isLoadingSubstituteShifts, userProfile]);
 
   // --- DERIVED STATE: Determine which data to use based on role ---
   const pharmacies = isPharmacy ? pharmacyPharmacies : substitutePharmacies;
